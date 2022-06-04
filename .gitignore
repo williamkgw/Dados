@@ -2,7 +2,7 @@
 
 **/dados
 **/data
-
+**/__pycache__
 # Ignoring all excel files
 
 *.xlsx
