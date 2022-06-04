@@ -48,15 +48,12 @@ def read_excel(filepath, range_index = None, range_column = None, range_data = N
 
     if range_index is not None:
         _index_col = get_row_or_col_array(range_index, 'column')
-        print(_index_col)
 
     if range_column is not None:
         _header = get_row_or_col_array(range_column, 'row')
-        print(_header)
 
     if range_data is not None:
         _usecols = get_pd_usecols(range_data)
-        print(_usecols)
 
 
     df = pd.read_excel( filepath,
