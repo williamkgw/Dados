@@ -1,0 +1,9 @@
+# Ignoring all data inputs and outputs.
+
+**/dados
+**/data
+
+# Ignoring all excel files
+
+*.xlsx
+*.csv
