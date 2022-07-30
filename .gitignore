@@ -1,7 +1,5 @@
 # Ignoring all data inputs and outputs.
 
-**/dados
-**/*_copy
 **/data
 **/__pycache__
 
