@@ -72,6 +72,23 @@ def run():
     comp.to_excel(output_file_comp)
     import_obtido_df.to_excel(output_file_import_obtido, index = False)
 
+def run1():
+    import sys
+
+    from webscraping import login
+    from PyQt5 import QtWidgets, uic
+
+
+    app = QtWidgets.QApplication(sys.argv)
+
+    w = uic.loadUi('gui//firstQtDesigner.ui')
+    w.show()
+    w.get_import.clicked.connect(lambda: print('LOOOOl'))
+    w.get_vendas.clicked.connect(lambda: login('williamkennedyg7@gmail.com', '32habbo32'))
+    app.exec()
+
+
+
 run()
 
 #= SE(C2 = ""; "";SE(B2=C2;"Igual";"Diferente"))
