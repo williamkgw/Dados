@@ -6,18 +6,15 @@ import time
 site = 'https://app.simples.vet/login/login.php'
 
 def init_driver():
-    chrome_driver_path = r'chromedriver_win32/chromedriver.exe'
+    chrome_driver_path = r'thirdparty/chromedriver_win32/chromedriver.exe'
     default_download_path = r'C:\Users\willi\Desktop\clinica_exemplo\download'
 
-    #prefs = {'download.default_directory': r'C:\Users\willi\Desktop\clinica_exemplo\download'}
     prefs = dict([('download.default_directory', default_download_path)])
 
     options = webdriver.ChromeOptions()
     options.add_experimental_option('prefs', prefs)
 
-
     driver = webdriver.Chrome(executable_path = chrome_driver_path,options=options)
-
     return driver
 
 def login(name, password):

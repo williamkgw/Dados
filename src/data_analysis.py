@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import io_excel 
 
 def dataframe_associative_vector(df, column , associative_vector):
 
@@ -61,3 +62,28 @@ def medicao(import_desejado_df, item_grupo_df, vendas_df, reagrupa_df):
         import_desejado.loc[mask,'Medição'] = calc_indicador(vendas_agrupado, grupo, arg, calc)
         
     return import_desejado
+
+def get_import_csv():
+
+    input_file_import_desejado = 'data\\input\\import_desejado.xlsx'
+    input_file_item_grupo = 'data\\input\\item_grupo.xlsx'
+    input_file_reagrupa = 'data\\input\\reagrupa.xlsx'
+    input_file_vendas = 'data\\input\\vendas.csv'
+
+    output_file_import_obtido = 'data\\output\\obtido.xlsx'
+    output_file_comp = 'data\\output\\comp.xlsx'
+
+    import_desejado_df = pd.read_excel(input_file_import_desejado)
+    item_grupo_df = pd.read_excel(input_file_item_grupo, index_col=0)
+    reagrupa_df = io_excel.read_excel(input_file_reagrupa, range_index='A1:A1', range_column='B1:B1', range_data='A1:B813')
+    vendas_df = pd.read_csv(input_file_vendas, thousands='.', decimal=',', encoding='latin1', sep=';')
+    
+    import_obtido_df = medicao(import_desejado_df, item_grupo_df, vendas_df, reagrupa_df)
+
+    comp = pd.DataFrame(columns = ['Medição Desejada', 'Medição Obtida', 'Item'])
+    comp['Medição Desejada'] = import_desejado_df['Medição']
+    comp['Medição Obtida'] = import_obtido_df['Medição']
+    comp['Item'] = import_desejado_df['Item']
+
+    comp.to_excel(output_file_comp)
+    import_obtido_df.to_excel(output_file_import_obtido, index = False)
