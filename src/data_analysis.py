@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from pathlib import Path
 
 def calc_indicador(vendas_agrupado, item):
@@ -81,28 +80,29 @@ def medicao(import_desejado_df, vendas_df, reagrupa_s):
 
     return import_obtido
 
-def get_import_csv():
+def out_files(import_f):
 
-    input_file_import_desejado = Path('data/input/import_desejado.xlsx')
-    input_file_item_grupo = Path('data/input/item_grupo.xlsx')
-    input_file_reagrupa = Path('data/input/reagrupa.xlsx')
-    input_file_vendas = Path('data/input/vendas_teste.csv')
+    out_list = list(import_f.parts)
+    out_list[out_list.index('input')] = 'output'
+    out_import_f = Path(*out_list)
 
-    output_file_import_obtido = Path('data/output/obtido.xlsx')
-    output_file_comp = Path('data/output/comp.xlsx')
+    out_comp_f = out_import_f.parent / 'comp.xlsx'
 
-    import_desejado_df = pd.read_excel(input_file_import_desejado)
-    item_grupo_df = pd.read_excel(input_file_item_grupo, index_col = 'Item')
+    return out_import_f, out_comp_f
+
+def get_import(vendas_f, input_file_reagrupa, import_f):
     reagrupa_s = pd.read_excel(input_file_reagrupa, index_col = 'PRODUTOS/SERVIÇO').squeeze('columns')
 
-    vendas_df = pd.read_csv(input_file_vendas, thousands='.', decimal=',', encoding='latin1', sep=';')
+    out_import_f, out_comp_f = out_files(import_f)
+
+    import_df = pd.read_excel(import_f)
+    vendas_df = pd.read_csv(vendas_f, thousands = '.', decimal = ',', encoding = 'latin1', sep = ';')
     
-    import_obtido_df = medicao(import_desejado_df, item_grupo_df, vendas_df, reagrupa_s)
-
+    out_import_df = medicao(import_df, vendas_df, reagrupa_s)
     comp = pd.DataFrame()
-    comp['Medição Desejada'] = import_desejado_df['Medição']
-    comp['Medição Obtida'] = import_obtido_df['Medição']
-    comp['Item'] = import_desejado_df['Item']
+    comp['Medicao Desejada'] = import_df['Medição']
+    comp['Medição Obtida'] = out_import_df['Medição']
+    comp['Item'] = import_df['Item']
 
-    comp.to_excel(output_file_comp)
-    import_obtido_df.to_excel(output_file_import_obtido, index = False)
+    comp.to_excel(out_comp_f)
+    out_import_df.to_excel(out_import_f, index = False)
