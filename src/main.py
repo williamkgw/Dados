@@ -10,13 +10,10 @@ def run():
 
     input_file_import_desejado = Path('data/input/import_desejado.xlsx').resolve()
     input_file_reagrupa = Path('data/input/reagrupa.xlsx').resolve()
-    input_file_vendas = Path('data/input/vendas_teste.csv').resolve()
-    ui_file = Path('src/gui/firstQtDesigner.ui')
+    input_file_vendas = Path('data/input/vendas.csv').resolve()
+    ui_file = Path('src/gui/firstQtDesigner.ui').resolve()
 
     app = QtWidgets.QApplication(sys.argv)
-
-    print(os.getcwd())
-
 
     w = uic.loadUi(ui_file)
     w.show()
