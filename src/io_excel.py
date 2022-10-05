@@ -69,4 +69,4 @@ def read_and_get_from_mapping_all(mapping_all_f):
 
         new_mapping_df = group[cols]
         new_mapping_df.to_excel(new_mapping, sheet_name = 'mapping_vendas', index = 'Produto/serviço',
-         columns = ['Categoria', 'Pilar', 'Grupo'])
+        columns = ['Categoria', 'Pilar', 'Grupo'])
