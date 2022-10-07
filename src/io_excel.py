@@ -125,9 +125,7 @@ def get_mapping_new(vendas_f):
 
 def get_columns_of_vendas():
     root_dir = Path('data/output/vendas')
-
-    paths = root_dir.rglob('*.xlsx')
-    paths = sorted(paths)
+    paths = search_files(root_dir, '*.xlsx')
 
     a = dict()
     for path in paths:
@@ -141,17 +139,31 @@ def get_columns_of_vendas():
     df_all = pd.DataFrame.from_dict(a, orient='index')
     df_all.to_excel('columns_vendas_all.xlsx')
 
+def get_vendas_all(paths, vendas_all_f):
+    
+    vendas_all_df = pd.DataFrame()
+
+    print(paths)
+    for path in paths:
+        
+        empresa = path.parents[4].name
+        print(empresa)
+
+        vendas_df = pd.read_excel(path)
+        vendas_df['Empresa'] = empresa
+        
+        vendas_all_df = pd.concat([vendas_all_df, vendas_df])
+
+    vendas_all_df.to_excel(vendas_all_f)
+
 def get_mapping_all_from_files(paths):
 
     mapping_all_df = pd.DataFrame()
-    emps = ['Almir Tavares', 'Amor Cão e Gato', 'Amor de Bichos - MG', 'Animed RS', 'Arca de Noé - ES', 'Auqmia RJ', 'BEVET SP', 'Burlina', 'Cia Veterinária RJ', 'Cidade dos Bichos SP', 'EBVet', 'Fórmula Pet', 'Mania Animal', 'MyVet - Morumbi - SP', 'Tierplatz RS', 'Vet dos Anjos SP', 'VetCenter MT']
 
     for path in paths:
         mapping_df = pd.read_excel(path)
         emp = mapping_df['__emp'].values[0]
 
-        if emp not in emps:
-            continue
         mapping_all_df = pd.concat([mapping_df, mapping_all_df])
     
     return mapping_all_df
@@ -160,6 +172,7 @@ def get_mapping_all(paths, mapping_all_f):
     
     mapping_all_df = pd.DataFrame()
 
+    print(paths)
     for path in paths:
         
         empresa = path.parents[3].name
@@ -175,15 +188,15 @@ def get_mapping_all(paths, mapping_all_f):
 
     mapping_all_df.to_excel(mapping_all_f, columns = ['Categoria', 'Pilar', 'Grupo', 'Empresa'])
 
-def read_and_get_from_mapping_all(mapping_all_f, date):
+def read_and_get_from_mapping_all(database_dir, mapping_all_f, date):
 
     mapping_all_df = pd.read_excel(mapping_all_f, index_col = 'Produto/serviço')
     
     for name, group in mapping_all_df.groupby('Empresa'):
 
         empresa = name
-        new_dir     = Path('.') / f'data/input/{empresa}/Carga/{date}'
-        new_mapping = new_dir / 'mapping.xlsx'
+        new_dir     = database_dir / f'{empresa}/Carga/{date}'
+        new_mapping = new_dir / 'new_mapping.xlsx'
         print(f'read_and_get_from_mapping_all: {new_mapping} :{new_mapping.is_file()}')
         
         #remove cols

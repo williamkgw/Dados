@@ -114,6 +114,9 @@ def test_vendas(vendas_df, mapping_vendas_df, path):
         if pilar_or_total.lower() == 'pilar':
             tickets_fat_medio('__ticket_por_pilar', '__clientes_ativo_por_pilar')
 
+        elif pilar_or_total.lower() == 'categoria':
+            agg = agg.unstack(level = -1)
+
         elif pilar_or_total.lower() == 'total':
             tickets_fat_medio('__ticket', '__clientes_ativos')
 
@@ -126,7 +129,7 @@ def test_vendas(vendas_df, mapping_vendas_df, path):
 
     agg_grupo_df     = agg_configure(vendas_agrupado_grupo, True)
     agg_pilar_df     = agg_configure(vendas_agrupado_pilar, True, 'pilar')
-    agg_categoria_df = agg_configure(vendas_agrupado_categoria, False, 'pilar')
+    agg_categoria_df = agg_configure(vendas_agrupado_categoria, False, 'categoria')
     agg_tempo_df     = agg_configure(vendas_agrupado_tempo, False, 'total') 
 
     # exception
@@ -165,11 +168,11 @@ def test_vendas(vendas_df, mapping_vendas_df, path):
     agg_file = path / 'test_agg.xlsx'
     with pd.ExcelWriter(agg_file) as writer:
 
-        agg_grupo_df.to_excel(writer, sheet_name = 'grupo')
-        agg_pilar_df.to_excel(writer, sheet_name = 'pilar')
-        agg_categoria_df.to_excel(writer, sheet_name = 'categoria')
-        agg_tempo_df.to_excel(writer, sheet_name = 'total')
-        agg_exception_df.to_excel(writer, sheet_name = 'exception')
+        agg_grupo_df.last('6M').to_excel(writer, sheet_name = 'grupo')
+        agg_pilar_df.last('6M').to_excel(writer, sheet_name = 'pilar')
+        agg_categoria_df.last('6M').to_excel(writer, sheet_name = 'categoria')
+        agg_tempo_df.last('6M').to_excel(writer, sheet_name = 'total')
+        agg_exception_df.last('6M').to_excel(writer, sheet_name = 'exception')
         mapping_vendas_df.groupby(['Pilar', 'Grupo'], dropna = False).size().to_excel(writer, sheet_name = 'unique_mapping')
 
     return vendas_agrupado_pilar, vendas_agrupado_grupo
@@ -182,15 +185,27 @@ def agg_vendas_clientes(vendas_df):
     start_date = pd.Period.to_timestamp(min_date.to_period(freq = 'M'))
 
     agg_v_clientes = pd.DataFrame()
-
     endDate = end_date
     while True:
         startDate = endDate - pd.DateOffset(months = 6)
         
         if startDate <=  start_date:
+            while True:
+                startDate = start_date
+                if endDate <= startDate:
+                    break
+                mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
+                df = vendas_df[mask]
+                n_clientes_6_meses = df['Cliente'].nunique()
+
+                agg_new = pd.DataFrame(index = [endDate])
+                agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
+                agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
+                
+                endDate -= pd.DateOffset(months = 1)
             break
         
-        mask = (vendas_df['Data e hora'] >= startDate)& (vendas_df['Data e hora'] <= endDate)
+        mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
         df = vendas_df[mask]
         n_clientes_6_meses = df['Cliente'].nunique()
 
@@ -204,9 +219,10 @@ def agg_vendas_clientes(vendas_df):
 
 def test_clientes(vendas_df, clientes_df, path):
     
+    clientes_df['Inclusão'] = pd.to_datetime(clientes_df['Inclusão'], dayfirst = True, errors = 'coerce')
     clientes_agrupado = clientes_df.groupby(pd.Grouper(key = 'Inclusão', freq = '1M'))
     agg_clientes = pd.DataFrame()
-    agg_clientes['Origem'] = clientes_agrupado['Origem'].value_counts(dropna = False)
+    agg_clientes = clientes_agrupado['Origem'].value_counts(dropna = False)
     agg_clientes = agg_clientes.unstack(level = 1)
 
     agg_v_clientes = agg_vendas_clientes(vendas_df)
@@ -353,20 +369,34 @@ def get_analysis(mapping_f, vendas_f, clientes_f, path):
 
     vendas_df['Produto/serviço'] = vendas_df['Produto/serviço'].str.lower()
 
-    #mapping_vendas_df = test_mapping_vendas(mapping_vendas_df, path)
-    #test_vendas(vendas_df, mapping_vendas_df, path)
+    mapping_vendas_df = test_mapping_vendas(mapping_vendas_df, path)
+    test_vendas(vendas_df, mapping_vendas_df, path)
     test_clientes(vendas_df, clientes_df, path)
+
+def loop():
+
+    root_dir = Path('data/input')
+    date = '2022/09 - Setembro'
+    search_pattern = f'Carga/{date}/Vendas.csv'
+    vendas = io_excel.search_files(root_dir, search_pattern)
+
+    for venda in vendas:
+        
+        emp = venda.parents[3].name
+        print(emp)
+
+        dir = venda.parent
+        output_dir = dir / 'output'
+
+        mapping     = dir / 'mapping.xlsx'
+        new_mapping = dir / 'new_mapping.xlsx'
+        clientes    = dir / 'Clientes.csv'
+
+        get_analysis(new_mapping, venda, clientes, output_dir)
 
 def main():
 
-    input_dir = Path('data/input/Bicho Vip')
-    input_mapping = input_dir / 'Mapping.xlsx'
-    input_vendas = input_dir / 'Vendas.csv'
-    input_clientes = input_dir / 'Clientes.csv'
-
-    output_dir = input_dir / 'output'
-
-    get_analysis(input_mapping, input_vendas, input_clientes, output_dir)
+    pass
 
 if __name__ == '__main__':
     main()
