@@ -10,7 +10,7 @@ def search_files(root_dir, pattern):
 
 def get_list_path(date):
 
-    root_dir = Path('C:/Users/willi/OneDrive/Documentos/Programas/Database/.Gestão Pet Clientes')
+    root_dir = Path('C:/Users/willi/OneDrive/Documentos/Programas/Database/gpet/.Gestão Pet Clientes')
     
     search_string = f'**/Carga/{date}/*-*Vendas*.xlsx'
     ret = search_files(root_dir, search_string)
@@ -178,7 +178,7 @@ def get_mapping_all(paths, mapping_all_f):
         empresa = path.parents[3].name
         print(empresa)
 
-        mapping_df = pd.read_excel(path, sheet_name = 'mapping_vendas', index_col = 'Produto/serviço')
+        mapping_df = pd.read_excel(path, index_col = 'Produto/serviço')
         mapping_df['Empresa'] = empresa
         
         if 'Categoria' not in set(mapping_df.columns):
@@ -197,7 +197,7 @@ def read_and_get_from_mapping_all(database_dir, mapping_all_f, date):
         empresa = name
         new_dir     = database_dir / f'{empresa}/Carga/{date}'
         new_mapping = new_dir / 'new_mapping.xlsx'
-        print(f'read_and_get_from_mapping_all: {new_mapping} :{new_mapping.is_file()}')
+        print(f'{new_mapping.is_file()} : read_and_get_from_mapping_all: {empresa}')
         
         #remove cols
         cols = set(group.columns)
@@ -208,3 +208,36 @@ def read_and_get_from_mapping_all(database_dir, mapping_all_f, date):
         new_dir.mkdir(parents = True, exist_ok = True)
         new_mapping_df.to_excel(new_mapping, sheet_name = 'mapping_vendas', index = 'Produto/serviço',
         columns = ['Categoria', 'Pilar', 'Grupo'])
+
+def read_and_get_from_mapping_item_all(database_dir, mapping_item_all_f, date):
+
+    mapping_item_all_df = pd.read_excel(mapping_item_all_f, index_col = 'ID do Item')
+    
+    for name, group in mapping_item_all_df.groupby('Empresa'):
+
+        empresa = name
+        new_dir     = database_dir / f'{empresa}/Carga/{date}'
+        new_mapping = new_dir / 'new_mapping_item.xlsx'
+        print(f'{new_mapping.is_file()} : read_and_get_from_mapping_item_all: {empresa}')
+        
+        #remove cols
+        cols = set(group.columns)
+        cols.remove('Empresa')
+        cols = list(cols)
+
+        new_mapping_df = group[cols]
+        new_dir.mkdir(parents = False, exist_ok = True)
+        new_mapping_df.to_excel(new_mapping, index = 'ID do Item', columns= ('Mês', 'Ano', 'Item', 'Categoria', 'Pilar', 'Grupo', 'Op', 'Op_execao', 'Multiplicador'))    
+
+def main():
+    dir = Path('data/input/22_dados')
+    mapping_item_all_f = Path('all_mapping_item.xlsx')
+
+    mapping_all_f = Path('15_empresas_new.xlsx')
+    date = '2022/10 - Outubro'
+    
+    # read_and_get_from_mapping_all(dir, mapping_all_f, date)
+    read_and_get_from_mapping_item_all(dir, mapping_item_all_f, date)
+
+if __name__ == '__main__':
+    main()

@@ -42,6 +42,10 @@ def test_vendas(vendas_df, mapping_vendas_df, path):
     vendas_df['__pilar'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Pilar'])
     vendas_df['__grupo'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Grupo'])
 
+    # ano e mes
+    vendas_df['__ano'] = vendas_df['Data e hora'].dt.year
+    vendas_df['__mes'] = vendas_df['Data e hora'].dt.month
+
     # tickets
     def get_ticket(df):
         df['__ticket'] = 1/df['Venda'].count()
@@ -231,128 +235,7 @@ def test_clientes(vendas_df, clientes_df, path):
     with pd.ExcelWriter(agg_file) as writer:
         agg_clientes.to_excel(writer, sheet_name = 'grupo_clientes')
         agg_v_clientes.to_excel(writer, sheet_name = 'ativos_clientes')
-
-def group_pm():
-    return pd.Series(dtype = np.float64)
-
-def group_selection(classification, groupby, col, category):
-    get_group_col = lambda cat: safe_get_group(groupby, cat)[col]
-    category_selection = dict()
-
-    if classification == 'Pilar':
-        category_selection = {
-                                'B&T': lambda: get_group_col('Banho e Tosa'),
-                                'Centro Cirúrgico': lambda: get_group_col('Cirurgia'),
-                                'Clínica Geral': lambda: get_group_col('Clínica'),
-                                'Exames': lambda: get_group_col('Exame'),
-                                'P&S': lambda: get_group_col('Petshop'),
-                                'Total': lambda: get_group_col(groupby.groups.keys()),
-                            }
-    elif classification == 'Grupo':
-        category_selection = {  'Acessórios P&S': lambda: get_group_col('Acessórios'),
-                                'Alimentação P&S': lambda: get_group_col('Alimentos'),
-                                'B&T+P&S': lambda: group_pm(),
-                                'Banho B&T': lambda: get_group_col('Banho'),
-                                'Cirurgia': lambda: get_group_col('Cirurgia'),
-                                'CLI+': lambda: group_pm(),
-                                'Consulta': lambda: get_group_col('Consulta'),
-                                'Cirúrgicos': lambda: get_group_col('Procedimentos Cirurgico'),
-                                'Clínicos': lambda: get_group_col('Procedimentos Clínico'),
-                                'Diárias Internação': lambda: get_group_col('Diária'),
-                                'Exames Ambulatoriais': lambda: get_group_col('Laboratório'),
-                                'Exames Imagem': lambda: get_group_col('Imagem'),
-                                'Exames Laboratoriais': lambda: get_group_col('Laboratório'),
-                                'Internação': lambda: group_pm(),
-                                'Internação Outros': lambda: get_group_col('Procedimentos Internação'),
-                                'Medicamentos P&S': lambda: get_group_col('Farmácia'),
-                                'Outros B&T': lambda: get_group_col('Outros BT'),
-                                'Pacotes B&T': lambda: group_pm(),
-                                'Procedimentos Cirúrgicos': lambda: get_group_col('Procedimentos Cirurgico'),
-                                'Procedimentos Clínicos': lambda: get_group_col('Procedimentos Clínico'),
-                                'Procedimentos Internação': lambda: get_group_col('Diária'),
-                                'Procedimentos Internação Outros': lambda: get_group_col('Procedimentos Internação'),
-                                'Tosa B&T': lambda: get_group_col('Tosa'),
-                                'Transporte B&T': lambda: group_pm(),
-                                'Vacina': lambda: get_group_col('Vacina')
-                            }
-    elif classification == 'Clientes':
-        return pd.Series(dtype = np.float64)
-
-    cat_selection_keys = list(category_selection.keys())
-    what_cat_is = [category.startswith(cat) for cat in cat_selection_keys]
-    
-    if any(what_cat_is):
-        cat = cat_selection_keys[what_cat_is.index(True)]
-        func = category_selection.get(cat, pd.Series(dtype = np.float64))
-        return func()
-    else:
-        print(f'Error group_selection: {category}')
-        return pd.Series(dtype=np.float64)
      
-def med_item(classification, groupby, item):
-    group_sel = lambda arg1, arg2: group_selection(classification, groupby, arg1, item.replace(arg2 + ' ', '', 1)).sum()
-    
-    col_selection = {'Procedimentos':    lambda: group_sel('Quantidade', 'Procedimentos'),
-                    'Produtos Vendidos': lambda: group_sel('Quantidade', 'Produtos Vendidos'),
-                    'Preço Médio':       lambda: group_sel('Bruto', 'Preço Médio')/group_sel('Quantidade', 'Preço Médio'),
-                    'Faturamento':       lambda: group_sel('Bruto', 'Faturamento')
-                    }
-
-    col_selection_keys = list(col_selection.keys())
-    what_col_is = [item.startswith(col) for col in col_selection_keys]
-    
-    if any(what_col_is):
-        type = col_selection_keys[what_col_is.index(True)]
-        func = col_selection.get(type, pd.Series(dtype = np.float64))
-        return func()
-        
-    else:
-        return f'med_item: {item}'
-
-def _med_item(id_item, category, mapping_df, groupby):
-    return eval(mapping_df.loc[id_item, category])
-
-def medicao_vendas(import_f, mapping_f, vendas_f):
-
-    # input dataframe from files
-    import_df = pd.read_excel(import_f, index_col = 'ID do Item')
-    mapping_vendas_df = pd.read_excel(mapping_f, sheet_name = 'mapping_vendas', index_col = 'Produto/serviço')
-    mapping_item_df = pd.read_excel(mapping_f, sheet_name = 'mapping_item', usecols = ['ID do Item', 'Item','Grupo', 'Pilar', 'op'], index_col = 'ID do Item')
-    vendas_df = pd.read_csv(vendas_f, usecols=['Grupo', 'Produto/serviço', 'Bruto', 'Quantidade'],thousands = '.', decimal = ',', encoding = 'latin1', sep = ';')
-
-    # configuring import to receive values
-    import_df['Item'] = import_df['Item'].apply(lambda x: ' '.join(x.split()))
-    import_df['Medição'] = pd.NA
-
-    # testing mapping
-    mapping_vendas_df = test_mapping_vendas(mapping_vendas_df)
-    # testing vendas and extracting useful data
-    vendas_agrupado_pilar, vendas_agrupado_grupo = test_vendas(vendas_df, mapping_vendas_df)
-
-    # selecting mapping item with grupo values
-    
-    # grupo_itens_df = mapping_item_df[~mapping_item_df['Grupo'].isna()]['Grupo']
-    # for id_item in grupo_itens_df.index:
-
-    #     med = _med_item(id_item, 'Grupo', mapping_item_df, vendas_agrupado_grupo)
-    #     import_df.loc[id_item, 'Medição'] = med
-    #     print(f"item in mapping = {item}\nitem in import = {import_df.loc[import_df['Item'] == item, 'Item'].values}\n\n")
-
-    # selecting mapping item with pilar values
-
-    pilar_itens_df = mapping_item_df[~mapping_item_df['Pilar'].isna()]['Pilar']
-    print(pilar_itens_df)
-    for id_item in pilar_itens_df.index:
-
-        med = _med_item(id_item, 'Pilar', mapping_item_df, vendas_agrupado_pilar)
-        item = import_df.loc[id_item, 'Item']
-        print(f"item == {item} med == {med}")
-        
-        import_df.loc[id_item, 'Medição'] = med
-        #print(f"item in mapping = {item}\nitem in import = {import_df.loc[import_df['Item'] == item, 'Item'].values}\n\n")
-
-    import_df.to_excel(Path('data/output/test_import.xlsx'))
-
 def get_analysis(mapping_f, vendas_f, clientes_f, path):
 
     path.mkdir(parents = True, exist_ok = True)
@@ -375,8 +258,8 @@ def get_analysis(mapping_f, vendas_f, clientes_f, path):
 
 def loop():
 
-    root_dir = Path('data/input')
-    date = '2022/09 - Setembro'
+    root_dir = Path('data/input/falta')
+    date = '2022/10 - Outubro'
     search_pattern = f'Carga/{date}/Vendas.csv'
     vendas = io_excel.search_files(root_dir, search_pattern)
 
@@ -396,7 +279,24 @@ def loop():
 
 def main():
 
-    pass
+    loop()
+
+    # root_dir = Path('data/input/22_dados')
+
+    # paths = list(root_dir.rglob('10 - Outubro/output/missing_vendas_csv.xlsx'))
+
+    # df_all = pd.DataFrame()
+    # for path in paths:
+    #     df = pd.read_excel(path)
+
+    #     emp = path.parents[4].name
+    #     print(emp)
+
+    #     df['__emp'] = emp
+
+    #     df_all = pd.concat([df_all, df])
+
+    # df_all.to_excel('missing_all_15.xlsx')
 
 if __name__ == '__main__':
     main()
