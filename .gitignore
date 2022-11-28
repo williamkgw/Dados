@@ -1,7 +1,10 @@
 # Ignoring all data inputs and outputs.
 
-**/data
-**/__pycache__
+/data/**
+!/data/**/
+!/data/**/.keep
+
+/src/__pycache__
 
 # Ignoring all excel files
 
