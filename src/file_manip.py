@@ -1,5 +1,7 @@
 from pathlib import Path
 import shutil
+import locale
+import datetime
 
 def get_mapping_on_dir(paths, root_dir, s_date):
 
@@ -34,13 +36,26 @@ def del_dirs_rmtree(paths):
     for path in paths:
         shutil.rmtree(path)
 
+def copy_dirs(dest_dir, src_carga_dirs):
+    
+    for src_carga_dir in src_carga_dirs:
+
+        dest_carga_dir = dest_dir / src_carga_dir.name
+
+        shutil.copytree(src_carga_dir, dest_carga_dir)
+
+import carga_control
 def main():
-    root_dir = Path('data/input/upar_drive')
-    paths = list(root_dir.rglob('10 - Outubro/output/out_import.xlsx'))
-    out_dir = Path('ftp/8_emp_nova')
-    emps = [path.parents[4].name for path in paths]
-    print(emps)
-    get_import_to_ftp_dir(paths, out_dir)
+    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
+    end_date  = datetime.date(day = 31, month = 12, year = 2022)
+    input_dir = Path('data/input')
+    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
+    emps_filter = carga_control.not_done(input_dir, end_date, 'new_mapping')
+    
+    # src_carga_dirs = sorted(cargas_dir.glob('*'))
+    # src_carga_filtered_dirs = [src_carga_dir for src_carga_dir in src_carga_dirs if src_carga_dir.name in emps_filter]
+    # out_dir = Path('copy_dirs/emps_11')
+    # copy_dirs(out_dir, src_carga_filtered_dirs)
 
 if __name__ == '__main__':
     main()

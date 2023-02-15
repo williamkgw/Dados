@@ -2,7 +2,11 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
+import datetime
+import locale
+
 import io_excel
+import carga_control
 
 def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols):
     id_item_col = 'ID do Item'
@@ -138,7 +142,6 @@ def med(import_file, agg_vendas_file, mapping_item_file, output_file):
 
     mapping_item_df = pd.read_excel(mapping_item_file, index_col = id_item_col) 
 
-    #import_df['Medição'] = pd.NA
     import_df = med_grupo(import_df, agg_vendas_grup_df, mapping_item_df)
     import_df = med_pilar(import_df, agg_vendas_pil_df, mapping_item_df)
     import_df = med_categoria(import_df, agg_vendas_cat_df, mapping_item_df)
@@ -147,6 +150,12 @@ def med(import_file, agg_vendas_file, mapping_item_file, output_file):
     import_df = import_df.dropna(subset = ('Mês', 'Ano'))
     import_df = import_df.replace([np.inf, -np.inf], 0)
 
+    faixa_columns = ['Fx Verde Inf/Previsto', 'Fx Verde Sup',
+       'Fx Vermelha Inf', 'Fx Vermelha Sup', 'Fx Cliente Inf',
+       'Fx Cliente Sup']
+
+    import_df[faixa_columns] = pd.NA
+    
     import_df.to_excel(output_file)
 
 def template_mapping_item_add_rows(mapping_df):
@@ -199,99 +208,120 @@ def template_mapping_item(import_file, mapping_file):
 
     return mapping_item_df
 
-def files_import(root_dir, date):
-    search_pattern = f'Carga/{date}/output/import.xlsx'
-    return io_excel.search_files(root_dir, search_pattern)
+def files_in_carga(cargas_dir, date, file_name):
+    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
 
-def files_mapping_item(root_dir, date):
-    search_pattern = f'Carga/{date}/new_mapping_item.xlsx'
-    return io_excel.search_files(root_dir, search_pattern)
+    year_month_s = date.strftime('%Y/%m - %B').title()
 
-def triple_check(import_from_icg_file, agg_vendas_file, mapping_file, mapping_item_file):
-    index_produto = 'Produto/serviço'
-    mapping_df = pd.read_excel(mapping_file, index_col = index_produto)
-    mapping_groupped = mapping_df.groupby(['Categoria', 'Pilar', 'Grupo'])
-    group_mapping = mapping_groupped.size().reset_index(level = [0,1]).drop(0, axis = 1)
-    x = group_mapping
-    print(x)
+    search_pattern = f'{year_month_s}/{file_name}'
 
-    id_item_col = 'ID do Item'
-    mapping_item_df = pd.read_excel(mapping_item_file, index_col = id_item_col)
-    mapping_item_cat_df = filter_mapping_item_df(mapping_item_df, 'categoria')
-    mapping_item_pil_df = filter_mapping_item_df(mapping_item_df, 'pilar')
-    mapping_item_tot_df = filter_mapping_item_df(mapping_item_df, 'Total')
-    mapping_item_df = pd.concat([mapping_item_cat_df, mapping_item_pil_df, mapping_item_tot_df])
+    return io_excel.search_files(cargas_dir, search_pattern)
+
+def triple_check(cargas_dir, date):
+
+    get_totalizado = lambda import_df: import_df#[import_df['Totalizado'] == 'Sim']
+
+    icg_import_f = cargas_dir / 'icg_export.xlsx'
+    icg_import_df = pd.read_excel(
+                                 icg_import_f, index_col = 'ID do Item',
+                                 usecols = (
+                                            'ID do Item', 'Mês', 'Ano',
+                                            'Medição', 'Item', 
+                                            'Totalizado'
+                                            )
+                                 )
+
+    icg_import_totalizado_df = get_totalizado(icg_import_df)
+    out_imports = files_in_carga(cargas_dir, date, 'output/out_import.xlsx')
     
-    import_icg_df = pd.read_excel(import_from_icg_file)
-    filtered_import_icg_df = import_icg_df[import_icg_df['Totalizado'] == 'Sim']
-    filtered_import_icg_df = filtered_import_icg_df.rename(columns = {'Medição': 'Medição_ref'})
-    
-    pos_med_ref = filtered_import_icg_df.columns.get_loc('Medição_ref')
-    filtered_import_icg_df.insert(pos_med_ref, 'Medição', pd.NA)
-    filtered_import_icg_df.insert(pos_med_ref + 2, 'Erro_Med', pd.NA)
+    df_all = pd.DataFrame()
+    for out_import in out_imports:
+        emp = out_import.parents[4].name
+        print(emp)
 
-    med(filtered_import_icg_df, agg_vendas_file, mapping_item_)
-    x = filtered_import_icg_df
-    print(x)
-    
-    import_df = med_pilar(import_df, agg_vendas_pil_df, mapping_item_df)
-    import_df = med_categoria(import_df, agg_vendas_cat_df, mapping_item_df)
-    import_df = med_total(import_df, agg_vendas_tot_df, mapping_item_df)
-    
+        out_import_df = pd.read_excel(out_import, index_col = 'ID do Item')
+        out_import_totalizado_df = get_totalizado(out_import_df)
 
-def main():
+        df = pd.DataFrame()
+        try:
+            df = icg_import_totalizado_df.loc[out_import_totalizado_df.index]
+            df['Delta out_import'] = out_import_totalizado_df['Medição']
+        except:
+            excess_id_item = (
+                             set(out_import_totalizado_df.index) 
+                             - set(icg_import_totalizado_df.index)
+                             )
+            common_id_itens = list(
+                              set(out_import_totalizado_df.index) 
+                              & set(icg_import_totalizado_df.index)
+                              )
+            df = icg_import_totalizado_df.loc[common_id_itens]
+            df['Delta out_import'] = out_import_totalizado_df.loc[common_id_itens, 'Medição']
+        
+        df['Empresa'] = emp
+        df['Delta out_import'] = df['Delta out_import'] - df['Medição']
+        df['Delta out_import'] = df['Delta out_import'].round(2)
+        df_all = pd.concat([df_all, df])
 
-    root_dir = Path('data/input/falta')
-    date = '2022/10 - Outubro'
+    out_import_comp = cargas_dir / 'comp_icg_out_import.xlsx'
+    df_all.to_excel(out_import_comp)
 
-    imports = files_import(root_dir, date)
-    mappings_item = files_mapping_item(root_dir, date)
-    print(imports)
+def loop2():
+    end_date = datetime.date(day = 31, month = 1, year = 2023)
+    input_dir = Path('data/input')
 
-    # df_all = pd.read_excel('import_all_empresa.xlsx', index_col = 'ID do Item')
-    # df_all['Empresa'] = pd.NA
-    # df_all_med = pd.DataFrame()
-    # for import_f in imports:
+    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
+    emps = carga_control.not_done(input_dir, end_date, 'mapping')
 
-    #     mapping_file = import_f.parent.parent / 'new_mapping.xlsx'
-    #     mapping_item = mapping_file.parent / 'mapping_item.xlsx'
+    imports = files_in_carga(cargas_dir, end_date, 'import.xlsx')
 
-    #     emp = mapping_file.parents[3].name
-    #     print(emp)
+    imports = [_import for _import in imports if _import.parents[3].name in emps]
 
-    #     # df = pd.read_excel(mapping_item)
-    #     # df['Empresa'] = emp
-    #     # df = df.reindex(df.index.values.tolist() + ['null'])
-    #     # df_all = pd.concat([df, df_all])
-
-
-    #     template_mapping_item(import_f, mapping_file)
-
-    # df_all.to_excel('1_mapping_item.xlsx')
-    for mapping_item in mappings_item:
-        emp = mapping_item.parents[3].name
+    for _import in imports:
+        emp = _import.parents[3].name
         print(emp)
         
-        input_dir = mapping_item.parent
-        output_dir = input_dir / 'output'
+        carga_dir = _import.parent
+        mapping = carga_dir / 'mapping.xlsx'
+        template_mapping_item_f = carga_dir / 'mapping_item.xlsx'
 
-        import_file     = output_dir / 'import.xlsx'
+        template_mapping_item_df = template_mapping_item(_import, mapping)
+        template_mapping_item_df.to_excel(template_mapping_item_f)
+
+def loop():
+    end_date = datetime.date(day = 31, month = 1, year = 2023)
+
+    input_dir = Path(f'data/input')
+
+    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
+
+    imports = files_in_carga(cargas_dir, end_date, 'import.xlsx')
+    emps_filter = carga_control.not_done(input_dir, end_date, 'import_automatico')
+
+    for import_f in imports:
+
+        emp = import_f.parents[3].name
+
+        if emp not in emps_filter:
+            continue
+        
+        print(emp)
+
+        carga_dir = import_f.parent
+
+        mapping_item = carga_dir / 'mapping_item.xlsx'
+        import_file     = carga_dir / 'import.xlsx'
+        
+        output_dir = carga_dir / 'output'
         agg_vendas_file = output_dir / 'test_agg.xlsx'
         out_import_file = output_dir / 'out_import.xlsx'
 
-        # df = pd.read_excel(import_file, index_col = 'ID do Item')
-        # df_med = df.dropna(subset = ['Medição']).copy()
-        # df_med['Empresa'] = emp
+        # med(import_file, agg_vendas_file, mapping_item, out_import_file)
 
-        # index_join = [index for index in df_med.index if index in df_all.index]
+    triple_check(cargas_dir, end_date)
 
-        # df_all.loc[index_join, 'Empresa'] = emp
-        # print(f'{emp}: {sorted(index_join)}')
-        # df_all_med = pd.concat([df_all_med, df_all.loc[index_join, :]])
-
-    # df_all_med.groupby('Empresa').size().to_excel('qnts_itens_med.xlsx')
-    # df_all_med.to_excel('todas_medicoes_com_empresa.xlsx')
-        med(import_file, agg_vendas_file, mapping_item, out_import_file)
+def main():
+    loop()
 
 if __name__ == '__main__':
     main()

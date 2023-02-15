@@ -7,6 +7,6 @@
 /src/__pycache__
 
 # Ignoring all excel files
-
+thirdparty/chromedriver_win32/*
 *.xlsx
 *.csv

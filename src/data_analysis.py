@@ -1,16 +1,319 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import datetime
+import locale
+import logging
 
 import io_excel
+import carga_control
 
-def safe_get_group(groupby, keys):
+def get_ticket(df):
+    df['__ticket'] = 1/df['Venda'].count()
+    return df
 
-    if any(item in keys for item in groupby.groups.keys()):
-        return pd.concat([group for (name, group) in groupby if name in keys]) # get multiple or single items
+def get_ticket_pilar(df):
+    
+    def percentage_of_the_row_against_df(df):
+        df['__ticket_por_pilar'] = 1/len(df)
+        return df
+
+    return df.groupby('__pilar', dropna = False).apply(percentage_of_the_row_against_df)
+
+def get_clientes_ativos(df):
+    df['__clientes_ativos'] = 1/len(df)
+    return df
+
+def get_cliente_pilar(df):
+
+    def percentage_of_the_row_against_df(df):
+        df['__clientes_ativo_por_pilar'] = 1/len(df)
+        return df
+
+    return df.groupby('__pilar', dropna = False).apply(percentage_of_the_row_against_df)
+
+def agg_configure(groupby, has_outter_cat, pilar_or_total = 'none'):
+
+    agg = pd.DataFrame()
+    agg['Faturamento Bruto']        = groupby.agg({'Bruto': 'sum'})
+    agg['Quantidade Totalizada']    = groupby.agg({'Quantidade': 'sum'})
+    agg['Preço Médio']              = agg['Faturamento Bruto']/agg['Quantidade Totalizada']
+
+    def tickets_fat_medio(type_of_ticket, type_of_cliente):
+        agg['Tickets Médio']        = groupby.agg({type_of_ticket: 'sum'})
+        agg['Tickets Médio']        = agg['Faturamento Bruto']/agg['Tickets Médio']
+        
+        agg['Faturamento Médio por Clientes'] = groupby.agg({type_of_cliente: 'sum'})
+        agg['Faturamento Médio por Clientes'] = agg['Faturamento Bruto']/agg['Faturamento Médio por Clientes']
+
+    if pilar_or_total.lower() == 'pilar':
+        tickets_fat_medio('__ticket_por_pilar', '__clientes_ativo_por_pilar')
+
+    elif pilar_or_total.lower() == 'categoria':
+        agg = agg.unstack(level = -1)
+
+    elif pilar_or_total.lower() == 'total':
+        tickets_fat_medio('__ticket', '__clientes_ativos')
+
+    if has_outter_cat:
+        agg = agg.unstack(level = -2).unstack(level = -1)
+    agg = agg.dropna(axis=1, how='all')
+    agg = agg.fillna(0)
+
+    return agg
+
+def sel_exception_series(exception_df, key, is_grupo):
+    exception_pilar = set(exception_df.columns.get_level_values(0))
+    exception_grupo = set(exception_df.columns.get_level_values(1))
+
+    if is_grupo:
+        if key in exception_grupo:
+            exception_df[f'__{key}'] = exception_df.xs(key, level = 1, axis = 1)
+        else:
+            exception_df[f'__{key}'] = 0
     else:
-        vendas_columns = groupby.get_group(list(groupby.groups.keys())[0]).columns
-        return pd.DataFrame(columns = vendas_columns)
+        if key in exception_pilar:
+            exception_df[f'__{key}'] = exception_df.xs(key, level = 0, axis = 1).sum(axis = 1)
+        else:
+            exception_df[f'__{key}'] = 0
+    
+    return exception_df[f'__{key}']
+
+def test_vendas_to_excel(path, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df, agg_exception_df, unique_mapping_df, vendas_missing_df, vendas_df):
+    agg_f = path / 'test_agg.xlsx'
+    vendas_missing_f = path / 'missing_vendas_csv.xlsx'
+    vendas_csv_f = path / 'vendas_csv.xlsx'
+
+    vendas_missing_df.to_excel(vendas_missing_f)
+    vendas_df.to_excel(vendas_csv_f)
+    with pd.ExcelWriter(agg_f) as writer:
+        agg_grupo_df.to_excel(writer, sheet_name = 'grupo')
+        agg_pilar_df.to_excel(writer, sheet_name = 'pilar')
+        agg_categoria_df.to_excel(writer, sheet_name = 'categoria')
+        agg_tempo_df.to_excel(writer, sheet_name = 'total')
+        agg_exception_df.to_excel(writer, sheet_name = 'exception')
+        unique_mapping_df.to_excel(writer, sheet_name = 'unique_mapping')
+
+def agg_configure_exception(vendas_agrupado_grupo):
+    exception_df = vendas_agrupado_grupo['Quantidade'].apply('sum')
+    exception_df = exception_df.unstack(level = -2).unstack(level = -1)
+    exception_df = exception_df.dropna(axis = 1, how = 'all')
+
+    cirurgia_s    = sel_exception_series(exception_df, 'Cirurgia', True)
+    consultas_s   = sel_exception_series(exception_df, 'Consulta', True)
+    exames_s      = sel_exception_series(exception_df, 'Exames', False)
+    internacao_s  = sel_exception_series(exception_df, 'Diária', True)
+
+    agg_exception_df = pd.DataFrame()
+    agg_exception_df['Consultas/Cirurgias']     = consultas_s/cirurgia_s
+    agg_exception_df['Consultas/Internação']    = consultas_s/internacao_s
+    agg_exception_df['Exames/Consultas']        = exames_s/consultas_s
+    agg_exception_df = agg_exception_df.replace([np.inf, -np.inf, np.nan], 0)
+
+    return agg_exception_df
+
+def test_vendas(vendas_df, mapping_vendas_df, path):
+    
+    # configuring
+    vendas_df['Produto/serviço'] = vendas_df['Produto/serviço'].str.lower()
+
+    # mapping
+    vendas_df['__categoria'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Categoria'])
+    vendas_df['__pilar'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Pilar'])
+    vendas_df['__grupo'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Grupo'])
+    vendas_df[['__categoria', '__pilar', '__grupo']] = vendas_df[['__categoria', '__pilar', '__grupo']].fillna('NULL')
+
+    # ano e mes
+    vendas_df['__ano'] = vendas_df['Data e hora'].dt.year
+    vendas_df['__mes'] = vendas_df['Data e hora'].dt.month
+
+    # tickets
+    vendas_df = vendas_df.groupby('Venda').apply(get_ticket)
+    vendas_df = vendas_df.groupby('Venda').apply(get_ticket_pilar)
+
+    # clientes ativos
+    vendas_df = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), 'Código'], dropna = False).apply(get_clientes_ativos)
+    vendas_df = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), 'Código'], dropna = False).apply(get_cliente_pilar)
+
+    # output diagnosis
+    vendas_missing_df = vendas_df[vendas_df[['__pilar', '__grupo']].isna().any(axis = 1)]
+
+    vendas_agrupado_grupo      = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__pilar' ,'__grupo'], dropna = False)
+    vendas_agrupado_pilar      = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__categoria' ,'__pilar'], dropna = False)
+    vendas_agrupado_categoria  = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__categoria'], dropna = False)
+    vendas_agrupado_tempo      = (  vendas_df
+                                    .copy()
+                                    .dropna(subset= ['__categoria' ,'__pilar'])
+                                    .groupby([pd.Grouper(key = 'Data e hora', freq = '1M')])
+                                )
+
+    agg_grupo_df     = agg_configure(vendas_agrupado_grupo, True)
+    agg_pilar_df     = agg_configure(vendas_agrupado_pilar, True, 'pilar')
+    agg_categoria_df = agg_configure(vendas_agrupado_categoria, False, 'categoria')
+    agg_tempo_df     = agg_configure(vendas_agrupado_tempo, False, 'total') 
+    agg_exception_df = agg_configure_exception(vendas_agrupado_grupo)
+
+    agg_grupo_df = agg_grupo_df.last('6M')
+    agg_pilar_df = agg_pilar_df.last('6M')
+    agg_categoria_df = agg_categoria_df.last('6M')
+    agg_tempo_df = agg_tempo_df.last('6M')
+    agg_exception_df = agg_exception_df.last('6M')
+    unique_mapping_df = mapping_vendas_df.groupby(['Categoria', 'Pilar', 'Grupo']).size()
+
+    return [agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df, agg_exception_df, unique_mapping_df, vendas_missing_df, vendas_df]
+
+def agg_vendas_clientes(vendas_df):
+    
+    max_date = max(vendas_df['Data e hora'])
+    end_date = pd.Period.to_timestamp(max_date.to_period(freq = 'M'))
+    min_date = min(vendas_df['Data e hora'])
+    start_date = pd.Period.to_timestamp(min_date.to_period(freq = 'M'))
+
+    agg_v_clientes = pd.DataFrame()
+    if start_date == end_date:
+        n_clientes_6_meses = 0
+        agg_new = pd.DataFrame(index = [end_date])
+        agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
+        return agg_new
+    
+    endDate = end_date
+    while True:
+        startDate = endDate - pd.DateOffset(months = 6)
+
+        if startDate <= start_date:
+            while True:
+                startDate = start_date
+                if endDate <= startDate:
+                    break
+                mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
+                df = vendas_df[mask]
+                n_clientes_6_meses = df['Código'].nunique()
+                agg_new = pd.DataFrame(index = [endDate])
+                agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
+                agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
+                
+                endDate -= pd.DateOffset(months = 1)
+            break
+        
+        mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
+        df = vendas_df[mask]
+        n_clientes_6_meses = df['Código'].nunique()
+
+        agg_new = pd.DataFrame(index = [endDate])
+        agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
+        agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
+
+        endDate -= pd.DateOffset(months = 1)
+
+    return agg_v_clientes
+
+def test_clientes_to_excel(path, agg_clientes, agg_v_clientes):
+    agg_file = path / 'test_agg_clientes.xlsx'
+    with pd.ExcelWriter(agg_file) as writer:
+        agg_clientes.to_excel(writer, sheet_name = 'grupo_clientes')
+        agg_v_clientes.to_excel(writer, sheet_name = 'ativos_clientes')
+
+def test_clientes(vendas_df, clientes_df):
+    clientes_df['Origem'] = clientes_df['Origem'].fillna('NULL')
+    clientes_agrupado = clientes_df.groupby(pd.Grouper(key = 'Inclusão', freq = '1M'))
+    agg_clientes = clientes_agrupado['Origem'].value_counts(dropna = False)
+    agg_clientes = agg_clientes.unstack(level = 1)
+
+    agg_v_clientes = agg_vendas_clientes(vendas_df)
+
+    agg_clientes = agg_clientes.last('6M')
+    agg_v_clientes = agg_v_clientes.last('6M')
+
+    return [agg_clientes, agg_v_clientes]
+
+def correct_new_mapping(paths_correct_new_mapping):
+    useful_cols = ['Categoria', 'Pilar', 'Grupo']
+
+    mapping_f = paths_correct_new_mapping['mapping']
+    new_mapping_f =     paths_correct_new_mapping['new_mapping']
+
+    mapping_df = pd.read_excel(mapping_f, index_col = 'Produto/serviço').fillna('')
+    new_mapping_df = pd.read_excel(new_mapping_f, index_col = 'Produto/serviço').fillna('')
+    set_values_mapping = set(mapping_df[useful_cols].value_counts().index)
+    set_values_new_mapping = set(new_mapping_df[useful_cols].value_counts().index)
+    set_excess_values_new_mapping = set_values_new_mapping - set_values_mapping
+    excess_values_new_mapping_mask = new_mapping_df[useful_cols].agg(tuple, axis = 1).isin(set_excess_values_new_mapping)
+    new_mapping_df.loc[excess_values_new_mapping_mask, 'Categoria'] = '*Reclassificar*'
+    return new_mapping_df
+
+def filter_and_correct_new_mapping_all(input_dir, end_date):
+
+    new_mapping_all_df = pd.DataFrame()
+
+    emps_filter = carga_control.not_done(input_dir, end_date, 'correct_mapping')
+    for emp in emps_filter:
+        print(emp)
+
+        paths_correct_new_mapping = carga_control.get_files_path_control(input_dir, end_date, 'correct_mapping', emp)
+        new_mapping_df = correct_new_mapping(paths_correct_new_mapping)
+        new_mapping_df['Empresa'] = emp
+        new_mapping_df['path'] = paths_correct_new_mapping['new_mapping']
+
+        new_mapping_all_df = pd.concat([new_mapping_all_df, new_mapping_df])
+    
+    new_mapping_all_df.to_excel('corrected_new_mapping_3.xlsx')
+
+def get_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
+    
+    year_month_src_s  = src_date.strftime('%Y/%m - %B').title()
+    year_month_dest_s = dest_date.strftime('%Y/%m - %B').title()
+
+    search_pattern = f'Carga/{year_month_src_s}/mapping.xlsx'
+    src_mappings = io_excel.search_files(src_cargas_dir, search_pattern)
+    
+    for src_mapping in src_mappings:
+        emp = src_mapping.parents[3].name
+        if emp not in filter_emps:
+            continue
+
+        print(emp)
+        
+        dest_carga_dir = Path(f'{dest_cargas_dir}/{emp}/Carga/{year_month_dest_s}')
+
+        dest_mapping_f = dest_carga_dir / 'mapping.xlsx'
+        dest_vendas_f  = dest_carga_dir / 'Vendas.csv'
+
+        try:
+            dest_vendas_df = pd.read_csv(
+                             dest_vendas_f, thousands = '.', decimal = ',', 
+                             encoding = 'latin1', sep = ';', 
+                             parse_dates = ['Data e hora'], dayfirst=True
+                             )
+        except Exception as e:
+            logging.warning(f'{emp}/exception {e}')
+            continue
+        dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= src_date - datetime.timedelta(days = 180)]
+        
+        src_mapping_df = pd.read_excel(src_mapping, index_col = 'Produto/serviço')
+
+        dest_prod_serv_index = dest_vendas_df['Produto/serviço'].unique().tolist()
+        src_prod_serv_index  = src_mapping_df.index.unique().tolist()
+
+        not_found_prod_serv_index = [
+                                        index for index in dest_prod_serv_index 
+                                        if index.lower() not in [e.lower() for e in src_prod_serv_index]
+                                    ]
+        
+        not_found_vendas_df = dest_vendas_df[dest_vendas_df['Produto/serviço'].isin(not_found_prod_serv_index)].copy()
+        
+        dest_mapping_df = not_found_vendas_df.set_index('Produto/serviço')['Grupo']
+        dest_mapping_df = dest_mapping_df[~dest_mapping_df.index.duplicated()]
+        dest_mapping_df = pd.concat([src_mapping_df, dest_mapping_df])
+        dest_mapping_df = dest_mapping_df.rename(columns = {0: 'grupo_simplesvet'})
+        print(dest_mapping_f)
+        columns_to_export = ['Categoria', 'Pilar', 'Grupo', 'grupo_simplesvet']
+        dest_mapping_df = dest_mapping_df.groupby(lambda x:x, axis = 1).sum()
+        dest_mapping_df.to_excel(dest_mapping_f, columns = columns_to_export)
+
+def test_mapping_vendas_to_excel(mapping_vendas_duplicated_df, missing_mapping_vendas_df, testing_vendas_out_f):
+    with pd.ExcelWriter(testing_vendas_out_f) as writer:
+        mapping_vendas_duplicated_df.to_excel(writer, sheet_name = 'duplicated_index')
+        missing_mapping_vendas_df.to_excel(writer, sheet_name = 'missing_mapping')
 
 def test_mapping_vendas(mapping_vendas_df, path):
     testing_vendas_out_f = path / 'testing_mapping_vendas.xlsx'
@@ -26,277 +329,125 @@ def test_mapping_vendas(mapping_vendas_df, path):
     mapping_vendas_duplicated_df = mapping_vendas_df[mapping_vendas_df.index.duplicated(keep = False)]
     mapping_vendas_df = mapping_vendas_df[~mapping_vendas_df.index.duplicated(keep='last')]
 
-    with pd.ExcelWriter(testing_vendas_out_f) as writer:  
-        mapping_vendas_duplicated_df.to_excel(writer, sheet_name = 'duplicated_index')
-        missing_mapping_vendas_df.to_excel(writer, sheet_name = 'missing_mapping')
+    test_mapping_vendas_to_excel(mapping_vendas_duplicated_df, missing_mapping_vendas_df, testing_vendas_out_f)
 
     return mapping_vendas_df
 
-def test_vendas(vendas_df, mapping_vendas_df, path):
-    
-    # configuring
-    vendas_df['Produto/serviço'] = vendas_df['Produto/serviço'].str.lower()
+def init_mapping_vendas(mapping_f, path):
+    mapping_vendas_df = pd.read_excel(mapping_f, index_col = 'Produto/serviço', 
+                                    dtype = {'Produto/serviço': str, 'Categoria': str, 'Grupo': str, 'Pilar': str}
+                                    )
+    return test_mapping_vendas(mapping_vendas_df, path)
 
-    # mapping
-    vendas_df['__categoria'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Categoria'])
-    vendas_df['__pilar'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Pilar'])
-    vendas_df['__grupo'] = vendas_df['Produto/serviço'].map(mapping_vendas_df['Grupo'])
+def invert_key_value_dict(dict):
 
-    # ano e mes
-    vendas_df['__ano'] = vendas_df['Data e hora'].dt.year
-    vendas_df['__mes'] = vendas_df['Data e hora'].dt.month
+    return {value:key for key, value in dict.items()}
 
-    # tickets
-    def get_ticket(df):
-        df['__ticket'] = 1/df['Venda'].count()
+def get_filter_columns(vendas_or_clientes_f, interface_name):
+    cargas_dir = vendas_or_clientes_f.parents[4]
+    emp = vendas_or_clientes_f.parents[3].name
+    interface_path = cargas_dir / interface_name
+    interface_df = pd.read_excel(interface_path, index_col = 'Sistema')
+    clean_interface_df = interface_df.fillna('')
+    columns = dict(clean_interface_df.loc['Simplesvet', :])
+    columns_cleaned = {key:value for key, value in columns.items() if value != ''}
+    return columns_cleaned
 
-        return df
-
-    vendas_df = vendas_df.groupby('Venda').apply(get_ticket)
-    
-
-    def get_ticket_pilar(df):
-
-        def f(df):
-            
-            df['__ticket_por_pilar'] = 1/len(df)
-
-            return df
-
-        df = df.groupby('__pilar', dropna = False).apply(f)
-
-        return df
-
-    vendas_df = vendas_df.groupby('Venda').apply(get_ticket_pilar)
-    
-    # clientes ativos
-    def get_clientes_ativos(df):
-        df['__clientes_ativos'] = 1/len(df)
-
-        return df
-
-    vendas_df = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), 'Código'], dropna = False).apply(get_clientes_ativos)
-
-    def get_cliente_pilar(df):
-
-        def f(df):
-            
-            df['__clientes_ativo_por_pilar'] = 1/len(df)
-
-            return df
-
-        df = df.groupby('__pilar', dropna = False).apply(f)
-
-        return df
-
-    vendas_df = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), 'Código'], dropna = False).apply(get_cliente_pilar)
-    
-    # output diagnosis
-    vendas_missing_df = vendas_df[vendas_df[['__pilar', '__grupo']].isna().any(axis = 1)]
-    vendas_missing_df.to_excel(path / 'missing_vendas_csv.xlsx')
-    vendas_df.to_excel(path / 'vendas_csv.xlsx')
-
-    vendas_agrupado_grupo      = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__pilar' ,'__grupo'], dropna = False)
-    vendas_agrupado_pilar      = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__categoria' ,'__pilar'], dropna = False)
-    vendas_agrupado_categoria  = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__categoria'], dropna = False)
-    vendas_agrupado_tempo      = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M')])
-
-    def agg_configure(groupby, has_outter_cat, pilar_or_total = 'none'):
-
-        agg = pd.DataFrame()
-        agg['Faturamento Bruto']        = groupby.agg({'Bruto': 'sum'})
-        agg['Quantidade Totalizada']    = groupby.agg({'Quantidade': 'sum'})
-        agg['Preço Médio']              = agg['Faturamento Bruto']/agg['Quantidade Totalizada']
-
-        def tickets_fat_medio(type_of_ticket, type_of_cliente):
-            agg['Tickets Médio']        = groupby.agg({type_of_ticket: 'sum'})
-            agg['Tickets Médio']        = agg['Faturamento Bruto']/agg['Tickets Médio']
-            
-            agg['Faturamento Médio por Clientes'] = groupby.agg({type_of_cliente: 'sum'})
-            agg['Faturamento Médio por Clientes'] = agg['Faturamento Bruto']/agg['Faturamento Médio por Clientes']
-
-        if pilar_or_total.lower() == 'pilar':
-            tickets_fat_medio('__ticket_por_pilar', '__clientes_ativo_por_pilar')
-
-        elif pilar_or_total.lower() == 'categoria':
-            agg = agg.unstack(level = -1)
-
-        elif pilar_or_total.lower() == 'total':
-            tickets_fat_medio('__ticket', '__clientes_ativos')
-
-        if has_outter_cat:
-            agg = agg.unstack(level = -2).unstack(level = -1)
-        agg = agg.dropna(axis=1, how='all')
-        agg = agg.fillna(0)
-
-        return agg
-
-    agg_grupo_df     = agg_configure(vendas_agrupado_grupo, True)
-    agg_pilar_df     = agg_configure(vendas_agrupado_pilar, True, 'pilar')
-    agg_categoria_df = agg_configure(vendas_agrupado_categoria, False, 'categoria')
-    agg_tempo_df     = agg_configure(vendas_agrupado_tempo, False, 'total') 
-
-    # exception
-    exception_df = vendas_agrupado_grupo['Quantidade'].apply('sum')
-    exception_df = exception_df.unstack(level = -2).unstack(level = -1)
-    exception_df = exception_df.dropna(axis = 1, how = 'all')
-
-    exception_pilar = set(exception_df.columns.get_level_values(0))
-    exception_grupo = set(exception_df.columns.get_level_values(1))
-
-    def sel_exception_series(key, is_grupo):
-
-        if is_grupo:
-            if key in exception_grupo:
-                exception_df[f'__{key}'] = exception_df.xs(key, level = 1, axis = 1)
-            else:
-                exception_df[f'__{key}'] = 0
-        else:
-            if key in exception_pilar:
-                exception_df[f'__{key}'] = exception_df.xs(key, level = 0, axis = 1).sum(axis = 1)
-            else:
-                exception_df[f'__{key}'] = 0
-        
-        return exception_df[f'__{key}']
-
-    cirurgia_s    = sel_exception_series('Cirurgia', True)
-    consultas_s   = sel_exception_series('Consulta', True)
-    exames_s      = sel_exception_series('Exames', False)
-    internacao_s  = sel_exception_series('Internação', False)
-
-    agg_exception_df = pd.DataFrame()
-    agg_exception_df['Consultas/Cirurgias']     = consultas_s/cirurgia_s
-    agg_exception_df['Consultas/Internação']    = consultas_s/internacao_s
-    agg_exception_df['Exames/Consultas']        = exames_s/consultas_s
-
-    agg_file = path / 'test_agg.xlsx'
-    with pd.ExcelWriter(agg_file) as writer:
-
-        agg_grupo_df.last('6M').to_excel(writer, sheet_name = 'grupo')
-        agg_pilar_df.last('6M').to_excel(writer, sheet_name = 'pilar')
-        agg_categoria_df.last('6M').to_excel(writer, sheet_name = 'categoria')
-        agg_tempo_df.last('6M').to_excel(writer, sheet_name = 'total')
-        agg_exception_df.last('6M').to_excel(writer, sheet_name = 'exception')
-        mapping_vendas_df.groupby(['Pilar', 'Grupo'], dropna = False).size().to_excel(writer, sheet_name = 'unique_mapping')
-
-    return vendas_agrupado_pilar, vendas_agrupado_grupo
-
-def agg_vendas_clientes(vendas_df):
-    
+def get_vendas_last_36_months(vendas_df):
     max_date = max(vendas_df['Data e hora'])
-    end_date = pd.Period.to_timestamp(max_date.to_period(freq = 'M'))
-    min_date = min(vendas_df['Data e hora'])
-    start_date = pd.Period.to_timestamp(min_date.to_period(freq = 'M'))
+    min_date = datetime.datetime(year = max_date.year - 3, month = max_date.month, day = 1)
+    mask = vendas_df['Data e hora'] > min_date
+    return vendas_df[mask]
 
-    agg_v_clientes = pd.DataFrame()
-    endDate = end_date
-    while True:
-        startDate = endDate - pd.DateOffset(months = 6)
-        
-        if startDate <=  start_date:
-            while True:
-                startDate = start_date
-                if endDate <= startDate:
-                    break
-                mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
-                df = vendas_df[mask]
-                n_clientes_6_meses = df['Cliente'].nunique()
+def init_vendas(vendas_f):
+    useful_columns = get_filter_columns(vendas_f, 'interface_vendas.xlsx')
+    vendas_df =  pd.read_csv(vendas_f, thousands = '.', decimal = ',', sep = ';',
+                        encoding = 'latin1',# usecols = useful_columns.values(),
+                        parse_dates = [useful_columns['Data e hora']], dayfirst=True,
+                        )
+    # vendas_df = vendas_df.rename(columns = invert_key_value_dict(useful_columns))
+    vendas_df['Código'] = vendas_df['Código'].fillna(0)
+    vendas_df = vendas_df.astype({'Produto/serviço': str, 'Quantidade': float, 'Bruto': float})
+    # vendas_df = vendas_df.astype({'Código': int, 'Grupo': str, 'Produto/serviço': str, 'Quantidade': float, 'Bruto': float}) - código e grupo as vezes podem nao existir
+    vendas_df = get_vendas_last_36_months(vendas_df)
+    return vendas_df
 
-                agg_new = pd.DataFrame(index = [endDate])
-                agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
-                agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
-                
-                endDate -= pd.DateOffset(months = 1)
-            break
-        
-        mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
-        df = vendas_df[mask]
-        n_clientes_6_meses = df['Cliente'].nunique()
-
-        agg_new = pd.DataFrame(index = [endDate])
-        agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
-        agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
-
-        endDate -= pd.DateOffset(months = 1)
-
-    return agg_v_clientes
-
-def test_clientes(vendas_df, clientes_df, path):
-    
+def init_clientes(clientes_f):
+    # useful_columns = get_filter_columns(clientes_f, 'interface_clientes.xlsx')
+    clientes_df = pd.read_csv(clientes_f, dayfirst = True, parse_dates = ['Inclusão'],#[useful_columns['Inclusão']],
+                        thousands = '.', decimal = ',', encoding = 'latin1',
+                        sep = ';'#, usecols = useful_columns.values()
+                        )
+    # clientes_df = clientes_df.rename(columns = invert_key_value_dict(useful_columns))
     clientes_df['Inclusão'] = pd.to_datetime(clientes_df['Inclusão'], dayfirst = True, errors = 'coerce')
-    clientes_agrupado = clientes_df.groupby(pd.Grouper(key = 'Inclusão', freq = '1M'))
-    agg_clientes = pd.DataFrame()
-    agg_clientes = clientes_agrupado['Origem'].value_counts(dropna = False)
-    agg_clientes = agg_clientes.unstack(level = 1)
+    clientes_df['Inclusão'] = clientes_df['Inclusão'].fillna('01/01/1900')
+    return clientes_df
 
-    agg_v_clientes = agg_vendas_clientes(vendas_df)
-
-    agg_file = path / 'test_agg_clientes.xlsx'
-    with pd.ExcelWriter(agg_file) as writer:
-        agg_clientes.to_excel(writer, sheet_name = 'grupo_clientes')
-        agg_v_clientes.to_excel(writer, sheet_name = 'ativos_clientes')
-     
 def get_analysis(mapping_f, vendas_f, clientes_f, path):
 
     path.mkdir(parents = True, exist_ok = True)
 
-    mapping_vendas_df = pd.read_excel(mapping_f, sheet_name = 'mapping_vendas', index_col = 'Produto/serviço',
-    dtype={'Produto/serviço': str, 'Categoria': str, 'Grupo': str, 'Pilar': str}
-    )
+    mapping_vendas_df = init_mapping_vendas(mapping_f, path)
+    vendas_df   = init_vendas(vendas_f)
+    clientes_df = init_clientes(clientes_f)
+    result_vendas = test_vendas(vendas_df, mapping_vendas_df, path)
+    test_vendas_to_excel(path, *result_vendas)
+    result_clientes = test_clientes(vendas_df, clientes_df, path)
+    test_clientes_to_excel(path, *result_clientes)
 
-    vendas_df = pd.read_csv(vendas_f, thousands = '.', decimal = ',', 
-    encoding = 'latin1', sep = ';', parse_dates = ['Data e hora'], dayfirst=True)
+def loop(input_dir, end_date, filter_emps):
 
-    clientes_df = pd.read_csv(clientes_f, dayfirst = True, parse_dates = ['Inclusão'],
-    thousands = '.', decimal = ',', encoding = 'latin1', sep = ';')
+    year_month_s = end_date.strftime('%Y/%m - %B').title()
+    search_pattern = f'Carga/{year_month_s}/Vendas.csv'
+    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
 
-    vendas_df['Produto/serviço'] = vendas_df['Produto/serviço'].str.lower()
-
-    mapping_vendas_df = test_mapping_vendas(mapping_vendas_df, path)
-    test_vendas(vendas_df, mapping_vendas_df, path)
-    test_clientes(vendas_df, clientes_df, path)
-
-def loop():
-
-    root_dir = Path('data/input/falta')
-    date = '2022/10 - Outubro'
-    search_pattern = f'Carga/{date}/Vendas.csv'
-    vendas = io_excel.search_files(root_dir, search_pattern)
+    vendas = io_excel.search_files(cargas_dir, search_pattern)
 
     for venda in vendas:
         
         emp = venda.parents[3].name
+        if emp not in filter_emps:
+            continue    
         print(emp)
 
-        dir = venda.parent
-        output_dir = dir / 'output'
+        carga_dir = venda.parent
 
-        mapping     = dir / 'mapping.xlsx'
-        new_mapping = dir / 'new_mapping.xlsx'
-        clientes    = dir / 'Clientes.csv'
+        carga_out_dir = carga_dir / 'output'
 
-        get_analysis(new_mapping, venda, clientes, output_dir)
+        new_mapping = carga_dir / 'new_mapping.xlsx'
+        clientes    = carga_dir / 'Clientes.csv'
+
+        try:
+            get_analysis(new_mapping, venda, clientes, carga_out_dir)
+        except Exception as e:
+            logging.warning(f'{emp}/Couldn\'t get data_analysis/{e}')
 
 def main():
+    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
 
-    loop()
+    end_date = datetime.date(day = 31, month = 12, year = 2022)
+    beg_date = end_date - datetime.timedelta(days = 30)
 
-    # root_dir = Path('data/input/22_dados')
+    year_month_end_s = end_date.strftime('%Y/%m - %B').title()
+    year_month_beg_s = beg_date.strftime('%Y/%m - %B').title()
 
-    # paths = list(root_dir.rglob('10 - Outubro/output/missing_vendas_csv.xlsx'))
+    input_dir = Path(f'data/teste1')
 
-    # df_all = pd.DataFrame()
-    # for path in paths:
-    #     df = pd.read_excel(path)
+    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
+    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
+    
+    root_dir = input_dir / f'{year_month_end_s}'
+    src_dir = input_dir /f'{year_month_beg_s}'
 
-    #     emp = path.parents[4].name
-    #     print(emp)
+    emps = carga_control.not_done(input_dir, end_date, 'mapping')
+    print(emps)
 
-    #     df['__emp'] = emp
-
-    #     df_all = pd.concat([df_all, df])
-
-    # df_all.to_excel('missing_all_15.xlsx')
+    t0 = datetime.datetime.now()
+    # loop(input_dir, end_date, emps)
+    t1 = datetime.datetime.now()
+    print(t1 - t0)
+    get_mapping(root_dir, end_date, root_dir, end_date, emps)
+    # filter_and_correct_new_mapping_all(input_dir, end_date)
 
 if __name__ == '__main__':
     main()

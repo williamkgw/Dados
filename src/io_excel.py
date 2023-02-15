@@ -1,21 +1,20 @@
 import pandas as pd
 from pathlib import Path
 
+import datetime
+import locale
+
 def search_files(root_dir, pattern):
+    return sorted(root_dir.rglob(pattern))
 
-    files = root_dir.rglob(pattern)
-    files = sorted(files)
-
-    return files
-
-def get_list_path(date):
+def get_list_path(year_month_s):
 
     root_dir = Path('C:/Users/willi/OneDrive/Documentos/Programas/Database/gpet/.Gestão Pet Clientes')
     
-    search_string = f'**/Carga/{date}/*-*Vendas*.xlsx'
+    search_string = f'**/Carga/{year_month_s}/*-*Vendas*.xlsx'
     ret = search_files(root_dir, search_string)
     
-    search_string = f'**/Carga/{date}/vendas_6_meses.csv'
+    search_string = f'**/Carga/{year_month_s}/new_mappign.xlsx'
     new_files = search_files(root_dir, search_string)
     ret.extend(new_files)
 
@@ -27,7 +26,7 @@ def get_list_path(date):
         emp_files_mtime = [file.stat().st_mtime for file in emp_files]
         emp_files_name = [file.name for file in emp_files]
 
-        vendas_new = 'vendas_6_meses.csv'
+        vendas_new = 'Vendas.csv'
         if vendas_new in emp_files_name:
             searched_index = emp_files_name.index(vendas_new)
             paths.append(emp_files[searched_index])
@@ -39,14 +38,14 @@ def get_list_path(date):
     return sorted(paths)
 
 def get_vendas(depara_vendas_f):
-    vendas_new = 'vendas_6_meses.csv'
+    vendas_new = 'Vendas.csv'
     if depara_vendas_f.name == vendas_new:
         get_vendas_new(depara_vendas_f)
     else:
         get_vendas_old(depara_vendas_f)
 
 def get_mapping(depara_vendas_f):
-    vendas_new = 'vendas_6_meses.csv'
+    vendas_new = 'Vendas.csv'
     if depara_vendas_f.name == vendas_new:
         get_mapping_new(depara_vendas_f)
     else:
@@ -92,10 +91,9 @@ def get_mapping_old(depara_f):
 
         df = sheet_needed.iloc[:, 0:3].copy()
         df.columns = ['Produto/serviço', 'Grupo', 'Pilar']
-        df['__emp'] = emp
-
-        mapping_f = Path('data/output/mappings/' + depara_f.stem + ' mapping.xlsx')
-        df.to_excel(mapping_f, index = False)
+        df['Categoria'] = pd.NA
+        df = df.set_index('Produto/serviço').iloc[:, [2, 1, 0]]
+        return df
     else:
         file = depara_f.name
 
@@ -186,16 +184,18 @@ def get_mapping_all(paths, mapping_all_f):
         
         mapping_all_df = pd.concat([mapping_all_df, mapping_df])
 
-    mapping_all_df.to_excel(mapping_all_f, columns = ['Categoria', 'Pilar', 'Grupo', 'Empresa'])
+    mapping_all_df.to_excel(mapping_all_f)
 
 def read_and_get_from_mapping_all(database_dir, mapping_all_f, date):
+
+    year_month_s = date.strftime('%Y/%m - %B').title()
 
     mapping_all_df = pd.read_excel(mapping_all_f, index_col = 'Produto/serviço')
     
     for name, group in mapping_all_df.groupby('Empresa'):
 
         empresa = name
-        new_dir     = database_dir / f'{empresa}/Carga/{date}'
+        new_dir     = database_dir / f'{empresa}/Carga/{year_month_s}'
         new_mapping = new_dir / 'new_mapping.xlsx'
         print(f'{new_mapping.is_file()} : read_and_get_from_mapping_all: {empresa}')
         
@@ -227,17 +227,157 @@ def read_and_get_from_mapping_item_all(database_dir, mapping_item_all_f, date):
 
         new_mapping_df = group[cols]
         new_dir.mkdir(parents = False, exist_ok = True)
-        new_mapping_df.to_excel(new_mapping, index = 'ID do Item', columns= ('Mês', 'Ano', 'Item', 'Categoria', 'Pilar', 'Grupo', 'Op', 'Op_execao', 'Multiplicador'))    
+        new_mapping_df.to_excel(new_mapping, index = 'ID do Item', columns = ('Mês', 'Ano', 'Item', 'Categoria', 'Pilar', 'Grupo', 'Op', 'Op_execao', 'Multiplicador'))
+
+def delete_files(paths):
+    for path in paths:
+        path.unlink()
+
+def delete_input_data_carga(date):
+    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
+
+    month_s      = date.strftime('%m - %B').title()
+    year_month_s = date.strftime('%Y/%m - %B').title()
+
+    root_dir = Path(f'data/input/{month_s}')
+
+    vendas_search_string   = f'Carga/{year_month_s}/**/Vendas.csv'
+    clientes_search_string = f'Carga/{year_month_s}/**/Clientes.csv'
+
+    vendas_paths   = search_files(root_dir, vendas_search_string)
+    clientes_paths = search_files(root_dir, clientes_search_string)
+
+    delete_files(vendas_paths)
+    delete_files(clientes_paths)
+
+def get_import(dest_dir, dest_date, src_dir, src_date, emps):
+
+    year_month_src_s  = src_date.strftime('%Y/%m - %B').title()
+    year_month_dest_s = dest_date.strftime('%Y/%m - %B').title()
+
+    search_pattern = f'Carga/{year_month_src_s}/output/out_import.xlsx'
+    src_imports = search_files(src_dir, search_pattern)
+    
+    for src_import in src_imports:
+        emp = src_import.parents[4].name
+        if emp not in emps:
+            print(f'not iiiiiiin: {emp}')
+            continue
+        print(emp)
+
+        dest_carga_dir = Path(f'{dest_dir}/{year_month_dest_s}/{emp}/Carga/{year_month_dest_s}/output')
+
+        dest_carga_import_f = dest_carga_dir / 'import.xlsx'
+
+        src_carga_import_df = pd.read_excel(src_import, index_col = 'ID do Item')
+        src_carga_import_df['Mês'] = dest_date.month
+        src_carga_import_df['Ano'] = dest_date.year
+        columns_to_fill_na = ['Medição', 'Fx Verde Inf/Previsto', 'Fx Verde Sup',
+                             'Fx Vermelha Inf', 'Fx Vermelha Sup', 'Fx Cliente Inf', 'Fx Cliente Sup']
+        src_carga_import_df[columns_to_fill_na] = pd.NA
+        
+        src_carga_import_df.to_excel(dest_carga_import_f)
+
+def get_mapping_item(dest_dir, dest_date, src_dir, src_date, emps):
+
+    year_month_src_s  = src_date.strftime('%Y/%m - %B').title()
+    year_month_dest_s = dest_date.strftime('%Y/%m - %B').title()
+
+    search_pattern = f'Carga/{year_month_src_s}/mapping_item.xlsx'
+    src_mapping_items = search_files(src_dir, search_pattern)
+    
+    for src_mapping_item in src_mapping_items:
+        print(src_mapping_item)
+        emp = src_mapping_item.parents[3].name
+        if emp not in emps:
+            print(f'not iiiiiiin: {emp}')
+            continue
+        print(emp)
+
+        dest_carga_dir = Path(f'{dest_dir}/{year_month_dest_s}/{emp}/Carga/{year_month_dest_s}')
+
+        dest_carga_mapping_item_f = dest_carga_dir / 'mapping_item.xlsx'
+
+        src_carga_mapping_item_df = pd.read_excel(src_mapping_item, index_col = 'ID do Item')
+        src_carga_mapping_item_df['Mês'] = dest_date.month
+        src_carga_mapping_item_df['Ano'] = dest_date.year
+        
+        print(dest_carga_mapping_item_f)
+        src_carga_mapping_item_df.to_excel(dest_carga_mapping_item_f)
+
+def df_all(paths_f, path_all_f, n):
+
+    df = pd.DataFrame()
+
+    for path_f in paths_f:
+        emp = path_f.parents[n].name
+        print(emp)
+
+        df_new = pd.read_excel(path_f)
+
+        df_new['Empresa'] = emp
+        df_new['path']    = path_f
+
+        df = pd.concat([df, df_new])
+
+    df.to_excel(path_all_f, index = False)
+
+def df_all_to_df(path_all_f):
+
+    df = pd.read_excel(path_all_f, index_col = 0)
+
+    for name, group in df.groupby('Empresa'):
+        print(name)
+
+        path = group['path'].iloc[0]
+        path = Path(path)
+
+        df = pd.DataFrame(data = group, columns = group.columns[:-2])
+        
+        print(path)
+        if path.parent.is_dir():
+            df.to_excel(path)
+        else:
+            print('NÃO EXISTE: ', name)
+
+def __ftp_dir(root_dir, emps):
+    import shutil
+    dest_dir = root_dir / '__ftp'
+    for file in sorted(dest_dir.glob('*.xlsx')):
+        file.unlink()
+
+    out_paths = search_files(root_dir,'out_import.xlsx')
+    for out_path in out_paths:
+
+        emp = out_path.parents[4].name
+        if emp not in emps:
+            continue
+        print(emp)
+
+        dest_path = dest_dir /f'{emp} - {out_path.name}'
+        shutil.copy(out_path, dest_path)
 
 def main():
-    dir = Path('data/input/22_dados')
-    mapping_item_all_f = Path('all_mapping_item.xlsx')
+    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
 
-    mapping_all_f = Path('15_empresas_new.xlsx')
-    date = '2022/10 - Outubro'
+    end_date = datetime.date(day = 31, month = 1, year = 2023)
+    input_dir = Path('data/input')
+    year_month_str = end_date.strftime('%Y/%m - %B').title()
+
+    cargas_dir = Path(f'data/input/{year_month_str}')
+    files = search_files(cargas_dir, 'out_import.xlsx')
     
-    # read_and_get_from_mapping_all(dir, mapping_all_f, date)
-    read_and_get_from_mapping_item_all(dir, mapping_item_all_f, date)
+    import carga_control
+    emps = carga_control.not_done(input_dir, end_date, 'import_automatico')
+
+    emps_files = [file.parents[4].name for file in files if file.parents[4].name in emps]
+    files_filtered = [file for file in files if file.parents[4].name in emps]
+
+    # df_all(files_filtered, 'reference_mapping.xlsx', 3) CUIDADO COM ISSO AQUI, ELE REESCREVE OS ARQUIVOS
+    # print(files_filtered)
+    __ftp_dir(cargas_dir, emps)
+    # df_all_to_df('reference_mapping.xlsx')
+
 
 if __name__ == '__main__':
     main()
