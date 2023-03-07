@@ -2,10 +2,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import datetime
-import locale
 import logging
 
-import io_excel
 import carga_control
 
 def get_ticket(df):
@@ -13,11 +11,9 @@ def get_ticket(df):
     return df
 
 def get_ticket_pilar(df):
-    
     def percentage_of_the_row_against_df(df):
         df['__ticket_por_pilar'] = 1/len(df)
         return df
-
     return df.groupby('__pilar', dropna = False).apply(percentage_of_the_row_against_df)
 
 def get_clientes_ativos(df):
@@ -25,15 +21,12 @@ def get_clientes_ativos(df):
     return df
 
 def get_cliente_pilar(df):
-
     def percentage_of_the_row_against_df(df):
         df['__clientes_ativo_por_pilar'] = 1/len(df)
         return df
-
     return df.groupby('__pilar', dropna = False).apply(percentage_of_the_row_against_df)
 
 def agg_configure(groupby, has_outter_cat, pilar_or_total = 'none'):
-
     agg = pd.DataFrame()
     agg['Faturamento Bruto']        = groupby.agg({'Bruto': 'sum'})
     agg['Quantidade Totalizada']    = groupby.agg({'Quantidade': 'sum'})
@@ -112,8 +105,7 @@ def agg_configure_exception(vendas_agrupado_grupo):
 
     return agg_exception_df
 
-def test_vendas(vendas_df, mapping_vendas_df, path):
-    
+def test_vendas(vendas_df, mapping_vendas_df):
     # configuring
     vendas_df['Produto/serviço'] = vendas_df['Produto/serviço'].str.lower()
 
@@ -141,9 +133,9 @@ def test_vendas(vendas_df, mapping_vendas_df, path):
     vendas_agrupado_grupo      = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__pilar' ,'__grupo'], dropna = False)
     vendas_agrupado_pilar      = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__categoria' ,'__pilar'], dropna = False)
     vendas_agrupado_categoria  = vendas_df.groupby([pd.Grouper(key = 'Data e hora', freq = '1M'), '__categoria'], dropna = False)
-    vendas_agrupado_tempo      = (  vendas_df
+    mask_null_cat_pil = vendas_df.loc[:, ('__categoria', '__pilar')].agg(tuple, axis = 1) == ('NULL', 'NULL')
+    vendas_agrupado_tempo      = (  vendas_df[~mask_null_cat_pil]
                                     .copy()
-                                    .dropna(subset= ['__categoria' ,'__pilar'])
                                     .groupby([pd.Grouper(key = 'Data e hora', freq = '1M')])
                                 )
 
@@ -159,11 +151,10 @@ def test_vendas(vendas_df, mapping_vendas_df, path):
     agg_tempo_df = agg_tempo_df.last('6M')
     agg_exception_df = agg_exception_df.last('6M')
     unique_mapping_df = mapping_vendas_df.groupby(['Categoria', 'Pilar', 'Grupo']).size()
-
-    return [agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df, agg_exception_df, unique_mapping_df, vendas_missing_df, vendas_df]
+    return [agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df,
+             agg_exception_df, unique_mapping_df, vendas_missing_df, vendas_df]
 
 def agg_vendas_clientes(vendas_df):
-    
     max_date = max(vendas_df['Data e hora'])
     end_date = pd.Period.to_timestamp(max_date.to_period(freq = 'M'))
     min_date = min(vendas_df['Data e hora'])
@@ -223,14 +214,13 @@ def test_clientes(vendas_df, clientes_df):
 
     agg_clientes = agg_clientes.last('6M')
     agg_v_clientes = agg_v_clientes.last('6M')
-
     return [agg_clientes, agg_v_clientes]
 
 def correct_new_mapping(paths_correct_new_mapping):
     useful_cols = ['Categoria', 'Pilar', 'Grupo']
 
     mapping_f = paths_correct_new_mapping['mapping']
-    new_mapping_f =     paths_correct_new_mapping['new_mapping']
+    new_mapping_f = paths_correct_new_mapping['new_mapping']
 
     mapping_df = pd.read_excel(mapping_f, index_col = 'Produto/serviço').fillna('')
     new_mapping_df = pd.read_excel(new_mapping_f, index_col = 'Produto/serviço').fillna('')
@@ -241,11 +231,8 @@ def correct_new_mapping(paths_correct_new_mapping):
     new_mapping_df.loc[excess_values_new_mapping_mask, 'Categoria'] = '*Reclassificar*'
     return new_mapping_df
 
-def filter_and_correct_new_mapping_all(input_dir, end_date):
-
+def filter_and_correct_new_mapping_all(input_dir, end_date, emps_filter):
     new_mapping_all_df = pd.DataFrame()
-
-    emps_filter = carga_control.not_done(input_dir, end_date, 'correct_mapping')
     for emp in emps_filter:
         print(emp)
 
@@ -256,26 +243,24 @@ def filter_and_correct_new_mapping_all(input_dir, end_date):
 
         new_mapping_all_df = pd.concat([new_mapping_all_df, new_mapping_df])
     
-    new_mapping_all_df.to_excel('corrected_new_mapping_3.xlsx')
+    new_mapping_all_df.to_excel('corrected_new_mapping.xlsx')
 
-def get_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
-    
-    year_month_src_s  = src_date.strftime('%Y/%m - %B').title()
-    year_month_dest_s = dest_date.strftime('%Y/%m - %B').title()
+def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
+    year_month_src_s  = carga_control.get_year_month_str(src_date)
+    year_month_dest_s = carga_control.get_year_month_str(dest_date)
 
     search_pattern = f'Carga/{year_month_src_s}/mapping.xlsx'
-    src_mappings = io_excel.search_files(src_cargas_dir, search_pattern)
-    
+    src_mappings = list(src_cargas_dir.rglob(search_pattern))
+
     for src_mapping in src_mappings:
         emp = src_mapping.parents[3].name
         if emp not in filter_emps:
             continue
 
         print(emp)
-        
         dest_carga_dir = Path(f'{dest_cargas_dir}/{emp}/Carga/{year_month_dest_s}')
 
-        dest_mapping_f = dest_carga_dir / 'mapping.xlsx'
+        dest_mapping_f = dest_carga_dir / 'new_mapping.xlsx'
         dest_vendas_f  = dest_carga_dir / 'Vendas.csv'
 
         try:
@@ -289,26 +274,24 @@ def get_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emp
             continue
         dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= src_date - datetime.timedelta(days = 180)]
         
-        src_mapping_df = pd.read_excel(src_mapping, index_col = 'Produto/serviço')
+        src_mapping_df = pd.read_excel(src_mapping, index_col = 'Produto/serviço', usecols = ('Produto/serviço', 'Categoria', 'Pilar', 'Grupo'))
 
         dest_prod_serv_index = dest_vendas_df['Produto/serviço'].unique().tolist()
         src_prod_serv_index  = src_mapping_df.index.unique().tolist()
 
-        not_found_prod_serv_index = [
-                                        index for index in dest_prod_serv_index 
-                                        if index.lower() not in [e.lower() for e in src_prod_serv_index]
-                                    ]
-        
+        not_found_prod_serv_index = [index for index in dest_prod_serv_index 
+                                     if index.lower() not in [e.lower() for e in src_prod_serv_index]]
+
         not_found_vendas_df = dest_vendas_df[dest_vendas_df['Produto/serviço'].isin(not_found_prod_serv_index)].copy()
-        
         dest_mapping_df = not_found_vendas_df.set_index('Produto/serviço')['Grupo']
         dest_mapping_df = dest_mapping_df[~dest_mapping_df.index.duplicated()]
         dest_mapping_df = pd.concat([src_mapping_df, dest_mapping_df])
         dest_mapping_df = dest_mapping_df.rename(columns = {0: 'grupo_simplesvet'})
-        print(dest_mapping_f)
-        columns_to_export = ['Categoria', 'Pilar', 'Grupo', 'grupo_simplesvet']
-        dest_mapping_df = dest_mapping_df.groupby(lambda x:x, axis = 1).sum()
-        dest_mapping_df.to_excel(dest_mapping_f, columns = columns_to_export)
+        grupo_simplesvet_por_produto_servico = dest_vendas_df.set_index('Produto/serviço').loc[:, 'Grupo']
+        grupo_simplesvet_por_produto_servico = grupo_simplesvet_por_produto_servico[~grupo_simplesvet_por_produto_servico.index.duplicated()]
+        
+        dest_mapping_df['grupo_simplesvet'] = grupo_simplesvet_por_produto_servico
+        dest_mapping_df.to_excel(dest_mapping_f, columns = ('Categoria', 'Pilar', 'Grupo', 'grupo_simplesvet'))
 
 def test_mapping_vendas_to_excel(mapping_vendas_duplicated_df, missing_mapping_vendas_df, testing_vendas_out_f):
     with pd.ExcelWriter(testing_vendas_out_f) as writer:
@@ -340,7 +323,6 @@ def init_mapping_vendas(mapping_f, path):
     return test_mapping_vendas(mapping_vendas_df, path)
 
 def invert_key_value_dict(dict):
-
     return {value:key for key, value in dict.items()}
 
 def get_filter_columns(vendas_or_clientes_f, interface_name):
@@ -384,24 +366,21 @@ def init_clientes(clientes_f):
     return clientes_df
 
 def get_analysis(mapping_f, vendas_f, clientes_f, path):
-
     path.mkdir(parents = True, exist_ok = True)
 
     mapping_vendas_df = init_mapping_vendas(mapping_f, path)
     vendas_df   = init_vendas(vendas_f)
     clientes_df = init_clientes(clientes_f)
-    result_vendas = test_vendas(vendas_df, mapping_vendas_df, path)
+    result_vendas = test_vendas(vendas_df, mapping_vendas_df)
     test_vendas_to_excel(path, *result_vendas)
-    result_clientes = test_clientes(vendas_df, clientes_df, path)
+    result_clientes = test_clientes(vendas_df, clientes_df)
     test_clientes_to_excel(path, *result_clientes)
 
 def loop(input_dir, end_date, filter_emps):
-
-    year_month_s = end_date.strftime('%Y/%m - %B').title()
-    search_pattern = f'Carga/{year_month_s}/Vendas.csv'
     cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
-
-    vendas = io_excel.search_files(cargas_dir, search_pattern)
+    year_month_s = carga_control.get_year_month_str(end_date)
+    search_pattern = f'Carga/{year_month_s}/Vendas.csv'
+    vendas = list(cargas_dir.rglob(search_pattern))
 
     for venda in vendas:
         
@@ -423,31 +402,30 @@ def loop(input_dir, end_date, filter_emps):
             logging.warning(f'{emp}/Couldn\'t get data_analysis/{e}')
 
 def main():
-    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
+    import sys
 
-    end_date = datetime.date(day = 31, month = 12, year = 2022)
-    beg_date = end_date - datetime.timedelta(days = 30)
-
-    year_month_end_s = end_date.strftime('%Y/%m - %B').title()
-    year_month_beg_s = beg_date.strftime('%Y/%m - %B').title()
-
-    input_dir = Path(f'data/teste1')
-
-    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
+    END_DATE = carga_control.END_DATE
+    INPUT_DIR = carga_control.INPUT_DIR
+    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
     logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
-    
-    root_dir = input_dir / f'{year_month_end_s}'
-    src_dir = input_dir /f'{year_month_beg_s}'
 
-    emps = carga_control.not_done(input_dir, end_date, 'mapping')
-    print(emps)
+    assert len(sys.argv) == 2
+    type_of_execution = sys.argv[1]
 
-    t0 = datetime.datetime.now()
-    # loop(input_dir, end_date, emps)
-    t1 = datetime.datetime.now()
-    print(t1 - t0)
-    get_mapping(root_dir, end_date, root_dir, end_date, emps)
-    # filter_and_correct_new_mapping_all(input_dir, end_date)
+    if type_of_execution == 'new_mapping':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
+        print(emps)
+        get_new_mapping(cargas_dir, END_DATE, cargas_dir, END_DATE, emps)
+
+    elif type_of_execution == 'correct_mapping':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'correct_mapping')
+        print(emps)
+        filter_and_correct_new_mapping_all(INPUT_DIR, END_DATE, emps)
+
+    elif type_of_execution == 'data_analysis':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'data_analysis')
+        print(emps)
+        loop(INPUT_DIR, END_DATE, emps)
 
 if __name__ == '__main__':
     main()
