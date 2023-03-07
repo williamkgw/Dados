@@ -1,8 +1,7 @@
-import pandas as pd
 from pathlib import Path
-
-import datetime
-import locale
+import pandas as pd
+import logging
+import carga_control
 
 def search_files(root_dir, pattern):
     return sorted(root_dir.rglob(pattern))
@@ -229,26 +228,6 @@ def read_and_get_from_mapping_item_all(database_dir, mapping_item_all_f, date):
         new_dir.mkdir(parents = False, exist_ok = True)
         new_mapping_df.to_excel(new_mapping, index = 'ID do Item', columns = ('Mês', 'Ano', 'Item', 'Categoria', 'Pilar', 'Grupo', 'Op', 'Op_execao', 'Multiplicador'))
 
-def delete_files(paths):
-    for path in paths:
-        path.unlink()
-
-def delete_input_data_carga(date):
-    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
-
-    month_s      = date.strftime('%m - %B').title()
-    year_month_s = date.strftime('%Y/%m - %B').title()
-
-    root_dir = Path(f'data/input/{month_s}')
-
-    vendas_search_string   = f'Carga/{year_month_s}/**/Vendas.csv'
-    clientes_search_string = f'Carga/{year_month_s}/**/Clientes.csv'
-
-    vendas_paths   = search_files(root_dir, vendas_search_string)
-    clientes_paths = search_files(root_dir, clientes_search_string)
-
-    delete_files(vendas_paths)
-    delete_files(clientes_paths)
 
 def get_import(dest_dir, dest_date, src_dir, src_date, emps):
 
@@ -305,21 +284,31 @@ def get_mapping_item(dest_dir, dest_date, src_dir, src_date, emps):
         print(dest_carga_mapping_item_f)
         src_carga_mapping_item_df.to_excel(dest_carga_mapping_item_f)
 
-def df_all(paths_f, path_all_f, n):
+def delete_files(paths):
+    for path in paths:
+        path.unlink()
 
+def delete_input_data_carga(input_dir, date):
+    cargas_dir = carga_control.get_cargas_dir(input_dir , date)
+    vendas_paths = cargas_dir.rglob('Vendas.csv')
+    clientes_paths = cargas_dir.rglob('Clientes.csv')
+
+    delete_files(vendas_paths)
+    delete_files(clientes_paths)
+
+def df_all(paths_f, emps_filter, path_all_f, n):
     df = pd.DataFrame()
 
     for path_f in paths_f:
         emp = path_f.parents[n].name
+        if emp not in emps_filter:
+            continue
         print(emp)
-
         df_new = pd.read_excel(path_f)
-
         df_new['Empresa'] = emp
-        df_new['path']    = path_f
-
+        df_new['path'] = path_f
         df = pd.concat([df, df_new])
-
+    
     df.to_excel(path_all_f, index = False)
 
 def df_all_to_df(path_all_f):
@@ -340,44 +329,28 @@ def df_all_to_df(path_all_f):
         else:
             print('NÃO EXISTE: ', name)
 
-def __ftp_dir(root_dir, emps):
-    import shutil
-    dest_dir = root_dir / '__ftp'
-    for file in sorted(dest_dir.glob('*.xlsx')):
-        file.unlink()
-
-    out_paths = search_files(root_dir,'out_import.xlsx')
-    for out_path in out_paths:
-
-        emp = out_path.parents[4].name
-        if emp not in emps:
-            continue
-        print(emp)
-
-        dest_path = dest_dir /f'{emp} - {out_path.name}'
-        shutil.copy(out_path, dest_path)
-
 def main():
-    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
+    import sys
 
-    end_date = datetime.date(day = 31, month = 1, year = 2023)
-    input_dir = Path('data/input')
-    year_month_str = end_date.strftime('%Y/%m - %B').title()
+    END_DATE = carga_control.END_DATE
+    INPUT_DIR = carga_control.INPUT_DIR
+    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
+    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
 
-    cargas_dir = Path(f'data/input/{year_month_str}')
-    files = search_files(cargas_dir, 'out_import.xlsx')
-    
-    import carga_control
-    emps = carga_control.not_done(input_dir, end_date, 'import_automatico')
+    assert len(sys.argv) == 2
+    type_of_execution = sys.argv[1]
 
-    emps_files = [file.parents[4].name for file in files if file.parents[4].name in emps]
-    files_filtered = [file for file in files if file.parents[4].name in emps]
+    if type_of_execution == 'new_mapping':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
+        print(emps)
+        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
+        df_all(new_mapping_paths, emps, 'mapping_faltando_28.xlsx', 3)
 
-    # df_all(files_filtered, 'reference_mapping.xlsx', 3) CUIDADO COM ISSO AQUI, ELE REESCREVE OS ARQUIVOS
-    # print(files_filtered)
-    __ftp_dir(cargas_dir, emps)
-    # df_all_to_df('reference_mapping.xlsx')
+    elif type_of_execution == 'new_mapping_all':
+        df_all_to_df('mapping_faltando_28_joao.xlsx')
 
+    elif type_of_execution == 'correct_mapping':
+        df_all_to_df('corrected_new_mapping.xlsx')
 
 if __name__ == '__main__':
     main()

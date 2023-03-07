@@ -70,7 +70,7 @@ class TestVendas(unittest.TestCase):
                                     )
         mapping_df.index = mapping_df.index.str.lower()
 
-        dfs = test_vendas(vendas_df, mapping_df, self.output_dir)
+        dfs = test_vendas(vendas_df, mapping_df)
 
         dfs1 = read_vendas(self.test_agg_f)
 

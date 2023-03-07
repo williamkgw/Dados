@@ -8,44 +8,40 @@ import pandas as pd
 
 from time import sleep
 import datetime
-import locale
 from pathlib import Path
 import logging
 
 import carga_control
 
-def list_download_files_in_dir(dir):
-    return list(dir.glob('*crdownload'))
+def list_download_files_in_download_dir(download_dir):
+    return list(download_dir.glob('*crdownload'))
 
-def halt_for_download(dir, timeout):
-
-    while not list_download_files_in_dir(dir):
+def halt_for_download(download_dir, timeout):
+    while not list_download_files_in_download_dir(download_dir):
         sleep(timeout/10)
-        if list_download_files_in_dir(dir):
+        if list_download_files_in_download_dir(download_dir):
             break
         
-    while list_download_files_in_dir(dir):
+    while list_download_files_in_download_dir(download_dir):
         sleep(timeout)
 
-def init_driver(out_dir):
-    chrome_driver_path    = Path('thirdparty/chromedriver_win32/chromedriver.exe')
-
-    prefs = dict([('download.default_directory', str(out_dir.resolve()))])
-
+def init_driver(download_dir):
+    chrome_driver_path = Path('thirdparty/chromedriver_win32/chromedriver.exe')
+    download_dir_path_str = str(download_dir.resolve())
+    prefs = dict([('download.default_directory', download_dir_path_str)])
     options = webdriver.ChromeOptions()
     options.add_argument("--disable-notifications")
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     options.add_experimental_option('prefs', prefs)
-
     driver = webdriver.Chrome(executable_path = chrome_driver_path,options=options)
     return driver
 
-def login_user(driver, name, password):
+def login_user(driver, email, password):
     login_box = driver.find_element(By.ID, 'l_usu_var_email')
     pass_box = driver.find_element(By.ID, 'l_usu_var_senha')
     login_button = driver.find_element(By.ID, 'btn_login')
 
-    login_box.send_keys(name)
+    login_box.send_keys(email)
     pass_box.send_keys(password)
 
     driver.execute_script("arguments[0].click();", login_button)
@@ -57,22 +53,20 @@ def login_user(driver, name, password):
         return
     else:
         if modal_body.text == 'Email ou senha inválidos':
-            raise Exception(f'{name} >> {password} Falha no Login/Senha')
-        
+            raise Exception(f'{email} >> {password} Falha no Login/Senha')
 
-def select_clinica(driver, clinica):
-    elems = driver.find_elements_by_tag_name('h4')
+def select_clinica(driver, nome_clinica):
+    elems = driver.find_elements(By.TAG_NAME, 'h4')
     clinicas_dict = dict([(elem.text, elem) for elem in elems])
-    
-    clinica_button = clinicas_dict.get(clinica, None)
-    
+
+    clinica_button = clinicas_dict.get(nome_clinica, None)
+
     if clinica_button is None:
-        raise Exception(f'{clinica} not found')
+        raise Exception(f'{nome_clinica} not found')
     else:
         driver.execute_script("arguments[0].click();", clinica_button)
 
 def select_vendas(driver):
-
     vendas_drop_list = driver.find_element(By.XPATH, '//span[normalize-space()="Vendas"]')
     driver.execute_script("arguments[0].click();", vendas_drop_list)
     sleep(0.5)
@@ -81,7 +75,6 @@ def select_vendas(driver):
     driver.execute_script("arguments[0].click();", vendas_link)
 
 def download_vendas(driver, end_date, download_dir):
-
     date_select = driver.find_element(By.XPATH, '//*[@id="p__ven_dat_data_text"]')
     driver.execute_script("arguments[0].click();", date_select)
     sleep(0.5)
@@ -99,7 +92,6 @@ def download_vendas(driver, end_date, download_dir):
     end_screen_date = datetime.datetime.strptime(end_screen_date_element.text, '%B %Y').date()
     beg_screen_date = datetime.datetime.strptime(beg_screen_date_element.text, '%B %Y').date()
 
-    # not_same_month_year = lambda screen, reference: screen.replace(day = 1) != reference.replace(day = 1)
     def not_same_month_year(screen, reference):
         return screen.replace(day = 1) != reference.replace(day = 1)
 
@@ -152,9 +144,7 @@ def download_vendas(driver, end_date, download_dir):
 
     halt_for_download(download_dir, 0.5)
 
-
 def download_clientes(driver, download_dir):
-
     clientes_link = driver.find_element(By.XPATH, '//span[normalize-space()="Clientes"]')
     driver.execute_script("arguments[0].click();", clientes_link)
     sleep(3)
@@ -202,7 +192,6 @@ def download(name, password, clinica, out_dir, end_date):
     driver.quit()
 
 def get_logins(cargas_dir, acess_pass_f, emps, date):
-
     import numpy as np
 
     year_month_str = date.strftime('%Y/%m - %B').title()
@@ -213,10 +202,10 @@ def get_logins(cargas_dir, acess_pass_f, emps, date):
     acess_pass_df = acess_pass_df[acess_pass_df['SITES'] == 'SIMPLESVET']
 
     for index, row in acess_pass_df.iterrows(): 
-        emp         = row['EMPRESA']
+        emp = row['EMPRESA']
 
         if emp not in emps:
-            emps_alredy_done = carga_control.done(acess_pass_f.parents[2], date, 'webscraping')
+            emps_alredy_done = carga_control.is_done_carga(acess_pass_f.parents[2], date, 'webscraping')
             if emp in emps_alredy_done:
                 continue
             logging.warning(f'{emp}/Falha no Download/Empresa Não Encontrada')
@@ -227,9 +216,9 @@ def get_logins(cargas_dir, acess_pass_f, emps, date):
             vendas_clientes_dir = carga_dir
 
             nome_acesso = row['NOME DE ACESSO']
-            acesso      = row['ACESSO']
-            senha       = row['SENHA']
-            extra       = row['EXTRA']
+            acesso = row['ACESSO']
+            senha = row['SENHA']
+            extra = row['EXTRA']
 
             if extra is not np.nan:
                 vendas_clientes_dir = carga_dir / f'{extra}'
@@ -239,29 +228,19 @@ def get_logins(cargas_dir, acess_pass_f, emps, date):
                 logging.warning(f'{emp}/Falha no Download/{e}')
 
 def main():
+    import sys
 
-    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
-    end_date  = datetime.date(day = 31, month = 12, year = 2022)
-    root_dir = Path('data/teste1')
-    cargas_dir = carga_control.get_cargas_dir(root_dir, end_date)
+    END_DATE  = carga_control.END_DATE
+    INPUT_DIR = carga_control.INPUT_DIR
+    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
     logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
 
-    emps = carga_control.not_done(root_dir, end_date, 'webscraping')
-    get_logins(cargas_dir, Path('Senhas de acessos.xlsx'), emps, end_date)
+    assert len(sys.argv) == 2
+    type_of_execution = sys.argv[1]
 
-def await_func():
-    import datetime as dt
-    import time
-
-    now_time = dt.datetime.now()
-    threshold_time = datetime.datetime(2023, 2, 1, 6)
-
-    while now_time < threshold_time:
-        print(f'awaiting at time: {now_time}')
-        now_time = dt.datetime.now()
-        time.sleep(60)
-
-    print(f'starting at: {now_time}')
+    if type_of_execution == 'webscraping':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'webscraping')
+        get_logins(cargas_dir, Path('Senhas de acessos.xlsx'), emps, END_DATE)
 
 if __name__ == '__main__':
     main()

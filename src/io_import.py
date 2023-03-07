@@ -1,11 +1,7 @@
 import pandas as pd
 import numpy as np
-from pathlib import Path
+import logging
 
-import datetime
-import locale
-
-import io_excel
 import carga_control
 
 def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols):
@@ -127,7 +123,7 @@ def med_execao(import_df, agg_vendas_df, mapping_item_df):
 
     return import_df
 
-def med(import_file, agg_vendas_file, mapping_item_file, output_file):
+def med(import_file, agg_vendas_file, mapping_item_file):
     id_item_col = 'ID do Item'
 
     import_df = pd.read_excel(import_file, index_col = id_item_col)
@@ -155,7 +151,7 @@ def med(import_file, agg_vendas_file, mapping_item_file, output_file):
        'Fx Cliente Sup']
 
     import_df[faixa_columns] = pd.NA
-    
+    return import_df
     import_df.to_excel(output_file)
 
 def template_mapping_item_add_rows(mapping_df):
@@ -208,120 +204,94 @@ def template_mapping_item(import_file, mapping_file):
 
     return mapping_item_df
 
-def files_in_carga(cargas_dir, date, file_name):
-    locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
+def get_mapping_item(import_paths, emps_filter, input_dir, end_date):
+    for import_path in import_paths:
+        emp = import_path.parents[3].name
+        if emp not in emps_filter:
+            continue
+        print(emp)
+        
+        carga_dir = carga_control.get_carga_dir(input_dir, emp, end_date)
+        mapping = carga_dir / 'mapping.xlsx'
+        template_mapping_item_f = carga_dir / 'mapping_item.xlsx'
 
-    year_month_s = date.strftime('%Y/%m - %B').title()
+        template_mapping_item_df = template_mapping_item(import_path, mapping)
+        template_mapping_item_df.to_excel(template_mapping_item_f)
 
-    search_pattern = f'{year_month_s}/{file_name}'
+def get_med_import(import_paths, emps_filter, input_dir, end_date):
+    for import_path in import_paths:
+        emp = import_path.parents[3].name
+        if emp not in emps_filter:
+            continue
+        print(emp)
 
-    return io_excel.search_files(cargas_dir, search_pattern)
+        carga_dir = carga_control.get_carga_dir(input_dir, emp, end_date)
+        mapping_item = carga_dir / 'mapping_item.xlsx'
+        import_file = carga_dir / 'import.xlsx'
+        output_dir = carga_dir / 'output'
+        agg_vendas_file = output_dir / 'test_agg.xlsx'
+        out_import_file = output_dir / 'out_import.xlsx'
 
-def triple_check(cargas_dir, date):
+        df = med(import_file, agg_vendas_file, mapping_item)
+        df.to_excel(out_import_file)
 
-    get_totalizado = lambda import_df: import_df#[import_df['Totalizado'] == 'Sim']
-
+def triple_check(out_imports, emps_filter, input_dir, end_date):
+    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
     icg_import_f = cargas_dir / 'icg_export.xlsx'
-    icg_import_df = pd.read_excel(
-                                 icg_import_f, index_col = 'ID do Item',
-                                 usecols = (
-                                            'ID do Item', 'Mês', 'Ano',
-                                            'Medição', 'Item', 
-                                            'Totalizado'
-                                            )
-                                 )
+    icg_import_cols = ('ID do Item', 'Mês', 'Ano',
+                       'Medição', 'Item', 'Totalizado'
+                        )
+    icg_import_df = pd.read_excel(icg_import_f, index_col = 'ID do Item', usecols = icg_import_cols)
 
-    icg_import_totalizado_df = get_totalizado(icg_import_df)
-    out_imports = files_in_carga(cargas_dir, date, 'output/out_import.xlsx')
-    
     df_all = pd.DataFrame()
     for out_import in out_imports:
         emp = out_import.parents[4].name
+        if emp not in emps_filter:
+            continue
         print(emp)
 
-        out_import_df = pd.read_excel(out_import, index_col = 'ID do Item')
-        out_import_totalizado_df = get_totalizado(out_import_df)
+        out_import_df = pd.read_excel(out_import, index_col = 'ID do Item', usecols = icg_import_cols)
 
-        df = pd.DataFrame()
-        try:
-            df = icg_import_totalizado_df.loc[out_import_totalizado_df.index]
-            df['Delta out_import'] = out_import_totalizado_df['Medição']
-        except:
-            excess_id_item = (
-                             set(out_import_totalizado_df.index) 
-                             - set(icg_import_totalizado_df.index)
-                             )
-            common_id_itens = list(
-                              set(out_import_totalizado_df.index) 
-                              & set(icg_import_totalizado_df.index)
-                              )
-            df = icg_import_totalizado_df.loc[common_id_itens]
-            df['Delta out_import'] = out_import_totalizado_df.loc[common_id_itens, 'Medição']
-        
+        set_id_out_import = set(out_import_df.index)
+        set_id_icg_import = set(icg_import_df.index)
+        common_id_import = list(set_id_icg_import & set_id_out_import)
+
+        df = icg_import_df.loc[common_id_import, :]
         df['Empresa'] = emp
+        df['Delta out_import'] = out_import_df.loc[common_id_import, 'Medição']
         df['Delta out_import'] = df['Delta out_import'] - df['Medição']
         df['Delta out_import'] = df['Delta out_import'].round(2)
+
         df_all = pd.concat([df_all, df])
 
     out_import_comp = cargas_dir / 'comp_icg_out_import.xlsx'
     df_all.to_excel(out_import_comp)
 
-def loop2():
-    end_date = datetime.date(day = 31, month = 1, year = 2023)
-    input_dir = Path('data/input')
-
-    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
-    emps = carga_control.not_done(input_dir, end_date, 'mapping')
-
-    imports = files_in_carga(cargas_dir, end_date, 'import.xlsx')
-
-    imports = [_import for _import in imports if _import.parents[3].name in emps]
-
-    for _import in imports:
-        emp = _import.parents[3].name
-        print(emp)
-        
-        carga_dir = _import.parent
-        mapping = carga_dir / 'mapping.xlsx'
-        template_mapping_item_f = carga_dir / 'mapping_item.xlsx'
-
-        template_mapping_item_df = template_mapping_item(_import, mapping)
-        template_mapping_item_df.to_excel(template_mapping_item_f)
-
-def loop():
-    end_date = datetime.date(day = 31, month = 1, year = 2023)
-
-    input_dir = Path(f'data/input')
-
-    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
-
-    imports = files_in_carga(cargas_dir, end_date, 'import.xlsx')
-    emps_filter = carga_control.not_done(input_dir, end_date, 'import_automatico')
-
-    for import_f in imports:
-
-        emp = import_f.parents[3].name
-
-        if emp not in emps_filter:
-            continue
-        
-        print(emp)
-
-        carga_dir = import_f.parent
-
-        mapping_item = carga_dir / 'mapping_item.xlsx'
-        import_file     = carga_dir / 'import.xlsx'
-        
-        output_dir = carga_dir / 'output'
-        agg_vendas_file = output_dir / 'test_agg.xlsx'
-        out_import_file = output_dir / 'out_import.xlsx'
-
-        # med(import_file, agg_vendas_file, mapping_item, out_import_file)
-
-    triple_check(cargas_dir, end_date)
-
 def main():
-    loop()
+    import sys
+
+    END_DATE = carga_control.END_DATE
+    INPUT_DIR = carga_control.INPUT_DIR
+    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
+    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
+
+    assert len(sys.argv) == 2
+    type_of_execution = sys.argv[1]
+
+    if type_of_execution == 'mapping_item':
+        import_paths = cargas_dir.rglob('import.xlsx')
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
+        get_mapping_item(import_paths, emps, INPUT_DIR, END_DATE)
+
+    elif type_of_execution == 'import_automatico':
+        import_paths = cargas_dir.rglob('import.xlsx')
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'import_automatico')
+        get_med_import(import_paths, emps, INPUT_DIR, END_DATE)
+
+    elif type_of_execution == 'triple_check':
+        out_imports = cargas_dir.rglob('out_import.xlsx')
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'triple_check')
+        triple_check(out_imports, emps, INPUT_DIR, END_DATE)
 
 if __name__ == '__main__':
     main()
