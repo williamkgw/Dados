@@ -71,8 +71,8 @@ def select_vendas(driver):
     driver.execute_script("arguments[0].click();", vendas_drop_list)
     sleep(0.5)
 
-    vendas_link = driver.find_element(By.XPATH, '(//a[@class="link-menu"][normalize-space()="Vendas"])[1]')
-    driver.execute_script("arguments[0].click();", vendas_link)
+    vendas_dados = driver.find_element(By.XPATH, '(//a[normalize-space()="Consulta vendas"])')
+    driver.execute_script("arguments[0].click();", vendas_dados)
 
 def download_vendas(driver, end_date, download_dir):
     date_select = driver.find_element(By.XPATH, '//*[@id="p__ven_dat_data_text"]')
@@ -200,32 +200,26 @@ def get_logins(cargas_dir, acess_pass_f, emps, date):
 
     acess_pass_df = pd.read_excel(acess_pass_f)
     acess_pass_df = acess_pass_df[acess_pass_df['SITES'] == 'SIMPLESVET']
+    acess_pass_filtered_df = acess_pass_df[acess_pass_df['EMPRESA'].isin(emps)]
 
-    for index, row in acess_pass_df.iterrows(): 
+    for index, row in acess_pass_filtered_df.iterrows():
         emp = row['EMPRESA']
 
-        if emp not in emps:
-            emps_alredy_done = carga_control.is_done_carga(acess_pass_f.parents[2], date, 'webscraping')
-            if emp in emps_alredy_done:
-                continue
-            logging.warning(f'{emp}/Falha no Download/Empresa Não Encontrada')
-        
-        if emp in emps:
-            print(emp)
-            carga_dir = cargas_dir / f'{emp}/Carga/{year_month_str}'
-            vendas_clientes_dir = carga_dir
+        print(emp)
+        carga_dir = cargas_dir / f'{emp}/Carga/{year_month_str}'
+        vendas_clientes_dir = carga_dir
 
-            nome_acesso = row['NOME DE ACESSO']
-            acesso = row['ACESSO']
-            senha = row['SENHA']
-            extra = row['EXTRA']
+        nome_acesso = row['NOME DE ACESSO']
+        acesso = row['ACESSO']
+        senha = row['SENHA']
+        extra = row['EXTRA']
 
-            if extra is not np.nan:
-                vendas_clientes_dir = carga_dir / f'{extra}'
-            try:
-                download(acesso, senha, nome_acesso, vendas_clientes_dir, date)
-            except Exception as e:
-                logging.warning(f'{emp}/Falha no Download/{e}')
+        if extra is not np.nan:
+            vendas_clientes_dir = carga_dir / f'{extra}'
+        try:
+            download(acesso, senha, nome_acesso, vendas_clientes_dir, date)
+        except Exception as e:
+            logging.warning(f'{emp}/Falha no Download/{e}')
 
 def main():
     import sys
