@@ -344,10 +344,10 @@ def main():
         emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
         print(emps)
         new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
-        df_all(new_mapping_paths, emps, 'mapping_faltando_28.xlsx', 3)
+        df_all(new_mapping_paths, emps, 'new_mapping_all.xlsx', 3)
 
     elif type_of_execution == 'new_mapping_all':
-        df_all_to_df('mapping_faltando_28_joao.xlsx')
+        df_all_to_df('new_mapping_all_preenchido.xlsx')
 
     elif type_of_execution == 'correct_mapping':
         df_all_to_df('corrected_new_mapping.xlsx')

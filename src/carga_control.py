@@ -119,6 +119,6 @@ def get_files_path_control(input_dir, date, control_type, emp):
     dict_control_type_paths = get_dict_control_type_paths(cargas_dir, emp, date)
     return dict_control_type_paths[control_type]
 
-END_DATE = datetime.date(day = 28, month = 2, year = 2023)
-BEG_DATE = datetime.date(day = 31, month = 1, year = 2023)
+END_DATE = datetime.date(day = 31, month = 3, year = 2023)
+BEG_DATE = datetime.date(day = 28, month = 2, year = 2023)
 INPUT_DIR = Path('data/input')
