@@ -1,0 +1,48 @@
+===== VENDAS =====
+
+Sheet: Vendas
+----- Essenciais Gerados -----
+DtConc                          A(Data e hora)
+=CONCATENAR(ANO(A2)&"-";DIREITA(MÊS(A2)+100;2))
+Indicador                       W(Produto/serviço)
+=SEERRO(PROCV(W2;Reagrupa!A:C;2;FALSO);"1 - Item Novo")
+Pilar de negócio                Reagrupa!B(Produto/serviço)
+=SEERRO(PROCV(AD2;Reagrupa!B:C;2;FALSO);0)
+Grupo                           seila_coluna(Grupo)
+
+Sheet: Algum Pilar, e.g. Clínica
+----- Essenciais Não Gerados -----
+Quantidade                     Y(Quantidade)
+=SOMASES(Vendas!$Y:$Y;Vendas!$AC:$AC;CONCATENAR(ANO($B11)&"-"&DIREITA(MÊS($B11)+100;2));Vendas!$AD:$AD;N$3)
+Bruto                          Z(Bruto)
+=SOMASES(Vendas!$Z:$Z;Vendas!$AC:$AC;CONCATENAR(ANO($B11)&"-"&DIREITA(MÊS($B11)+100;2));Vendas!$AD:$AD;H$3)
+
+Sheet: Vendas
+----- Particalmente Essenciais -----
+Ticket                          B(Venda)
+=1/CONT.SE($B:$B;B2)
+Ticket por pilar                B(Venda)
+=1/CONT.SES(AE:AE;AE2;B:B;B2)
+Clientes Ativos                 H(Código)
+=1/CONT.SES(H:H;H2;AC:AC;AC2)
+Clientes Ativos por pilar       H(Código)
+=SEERRO(1/CONT.SES($H:$H;H2;$AC:$AC;AC2;AE:AE;AE2);0)
+
+Sheet: Vendas
+---------------------------------
+Planilha Vendas:
+Clientes_Ativos                G(Cliente)
+Tabela Dinamica
+
+===== CLIENTES =====
+lembrar de revisar essa questao da planilha clientes.
+
+Sheet: Base
+------------------------------------------
+Planilha Clientes:
+Data_Clientes_Novos_Origem     N(Inclusão)
+
+Sheet: Resumo
+-----------------------------------------
+Clientes_Novos_Origem          P(Origem)
+=CONT.SES(Base!$AC:$AC;CONCATENAR(ANO($B48);"-";DIREITA(MÊS($B48)+100;2));Base!$P:$P;N$6)
