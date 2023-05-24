@@ -178,7 +178,7 @@ def agg_vendas_clientes(vendas_df):
                     break
                 mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
                 df = vendas_df[mask]
-                n_clientes_6_meses = df['Código'].nunique()
+                n_clientes_6_meses = df['Cliente'].nunique()
                 agg_new = pd.DataFrame(index = [endDate])
                 agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
                 agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
@@ -188,7 +188,7 @@ def agg_vendas_clientes(vendas_df):
         
         mask = (vendas_df['Data e hora'] >= startDate) & (vendas_df['Data e hora'] <= endDate)
         df = vendas_df[mask]
-        n_clientes_6_meses = df['Código'].nunique()
+        n_clientes_6_meses = df['Cliente'].nunique()
 
         agg_new = pd.DataFrame(index = [endDate])
         agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
@@ -243,7 +243,7 @@ def filter_and_correct_new_mapping_all(input_dir, end_date, emps_filter):
 
         new_mapping_all_df = pd.concat([new_mapping_all_df, new_mapping_df])
     
-    new_mapping_all_df.to_excel('corrected_new_mapping.xlsx')
+    new_mapping_all_df.to_excel(f'{input_dir}/corrected_new_mapping.xlsx')
 
 def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
     year_month_src_s  = carga_control.get_year_month_str(src_date)
