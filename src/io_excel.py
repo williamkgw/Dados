@@ -346,8 +346,26 @@ def main():
         new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
         df_all(new_mapping_paths, emps, f'{INPUT_DIR}/new_mapping_all.xlsx', 3)
 
+    elif type_of_execution == 'new_cliente_mapping':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_cliente_mapping')
+        print(emps)
+        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
+        df_all(new_mapping_paths, emps, f'{INPUT_DIR}/new_mapping_cliente_all.xlsx', 3)
+
+    elif type_of_execution == 'mapping_item':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
+        print(emps)
+        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('mapping_item.xlsx')
+        df_all(new_mapping_paths, emps, f'{INPUT_DIR}/mapping_item_all.xlsx', 3)
+
     elif type_of_execution == 'new_mapping_all':
         df_all_to_df(f'{INPUT_DIR}/new_mapping_all_preenchido.xlsx')
+
+    elif type_of_execution == 'new_cliente_mapping_all':
+        df_all_to_df(f'{INPUT_DIR}/mapping_clientes_all.xlsx')
+
+    elif type_of_execution == 'mapping_item_all':
+        df_all_to_df(f'{INPUT_DIR}/mapping_item_all.xlsx')
 
     elif type_of_execution == 'correct_mapping':
         df_all_to_df(f'{INPUT_DIR}/corrected_new_mapping_preenchido.xlsx')
