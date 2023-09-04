@@ -113,6 +113,14 @@ def main():
         new_mapping_copied_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
         change_filename_on_dir(new_mapping_copied_paths, emps, 'mapping.xlsx')
 
+    if type_of_execution == 'mapping_cliente':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_cliente')
+        print(emps)
+        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('new_mapping_cliente.xlsx')
+        get_file_on_dir(new_mapping_paths, emps, INPUT_DIR, END_DATE)
+        new_mapping_copied_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
+        change_filename_on_dir(new_mapping_copied_paths, emps, 'mapping_cliente.xlsx')
+
     elif type_of_execution == 'import':
         emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'import')
         print(emps)

@@ -79,6 +79,11 @@ def test_vendas_to_excel(path, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg
 
     vendas_missing_df.to_excel(vendas_missing_f)
     vendas_df.to_excel(vendas_csv_f)
+
+    analitico_dir = path.parents[3] / 'Analitico'
+    analitico_dir.mkdir(exist_ok = 'True')
+    analitico_vendas_csv_f = analitico_dir / 'vendas_csv.xlsx'
+    vendas_df.to_excel(analitico_vendas_csv_f)
     with pd.ExcelWriter(agg_f) as writer:
         agg_grupo_df.to_excel(writer, sheet_name = 'grupo')
         agg_pilar_df.to_excel(writer, sheet_name = 'pilar')
@@ -257,6 +262,52 @@ def filter_and_correct_new_mapping_all(input_dir, end_date, emps_filter):
     
     new_mapping_all_df.to_excel(f'{input_dir}/corrected_new_mapping.xlsx')
 
+def get_new_mapping_cliente(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
+    year_month_src_s  = carga_control.get_year_month_str(src_date)
+    year_month_dest_s = carga_control.get_year_month_str(dest_date)
+
+    search_pattern = f'Carga/{year_month_src_s}/mapping_cliente.xlsx'
+    src_mappings_cliente = list(src_cargas_dir.rglob(search_pattern))
+
+    for src_mapping_cliente in src_mappings_cliente:
+        emp = src_mapping_cliente.parents[3].name
+        if emp not in filter_emps:
+            continue
+
+        print(emp)
+        dest_carga_dir = Path(f'{dest_cargas_dir}/{emp}/Carga/{year_month_dest_s}')
+
+        dest_mapping_clientes_f = dest_carga_dir / 'new_mapping_cliente.xlsx'
+        dest_clientes_f  = dest_carga_dir / 'Clientes.csv'
+
+        try:
+            dest_clientes_df = init_clientes(dest_clientes_f, dest_date)
+            dest_clientes_df['Origem'] = dest_clientes_df['Origem'].fillna('_outros')
+
+        except Exception as e:
+            logging.warning(f'{emp}/exception {e}')
+            continue
+
+        src_mapping_clientes_df = pd.read_excel(src_mapping_cliente, index_col = 'Origem', usecols= ('Origem', 'Grupo'))
+
+        src_origem_index = src_mapping_clientes_df.index.tolist()
+        dest_origem_index = dest_clientes_df['Origem'].unique().tolist()
+
+        src_origem_index = [index for index in src_origem_index if index is not np.nan]
+        dest_origem_index = [index for index in dest_origem_index if index is not np.nan]
+
+        not_found_origem_index = dest_origem_index
+        if src_origem_index:
+            not_found_origem_index = [index for index in dest_origem_index
+                                            if index.lower() not in [e.lower() for e in src_origem_index]]
+        
+        dest_clientes_df['Grupo'] = pd.NA
+        not_found_clientes_df = dest_clientes_df[dest_clientes_df['Origem'].isin(not_found_origem_index)].copy()
+        dest_mapping_clientes_df = not_found_clientes_df.set_index('Origem')['Grupo']
+        dest_mapping_clientes_df = dest_mapping_clientes_df[~dest_mapping_clientes_df.index.duplicated()]
+        dest_mapping_clientes_df = pd.concat([src_mapping_clientes_df, dest_mapping_clientes_df])
+        dest_mapping_clientes_df.to_excel(dest_mapping_clientes_f, columns = ['Grupo'])
+
 def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
     year_month_src_s  = carga_control.get_year_month_str(src_date)
     year_month_dest_s = carga_control.get_year_month_str(dest_date)
@@ -284,6 +335,7 @@ def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter
         except Exception as e:
             logging.warning(f'{emp}/exception {e}')
             continue
+        dest_vendas_df['Data e hora'] = pd.to_datetime(dest_vendas_df['Data e hora'], errors = 'coerce')
         dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= src_date - datetime.timedelta(days = 180)]
         
         src_mapping_df = pd.read_excel(src_mapping, index_col = 'Produto/serviço', usecols = ('Produto/serviço', 'Categoria', 'Pilar', 'Grupo'))
@@ -420,7 +472,7 @@ def get_analysis(mapping_f, vendas_f, mapping_clientes_f, clientes_f, path, end_
     mapping_clientes_df = test_mapping_clientes(mapping_clientes_df, path)
 
     vendas_df = init_vendas(vendas_f)
-    clientes_df = init_clientes(clientes_f)
+    clientes_df = init_clientes(clientes_f, end_date)
     result_clientes = test_clientes(vendas_df, clientes_df, mapping_clientes_df)
     test_clientes_to_excel(path, *result_clientes)
 
@@ -465,6 +517,11 @@ def main():
         emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
         print(emps)
         get_new_mapping(cargas_dir, END_DATE, cargas_dir, END_DATE, emps)
+
+    if type_of_execution == 'new_mapping_cliente':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping_cliente')
+        print(emps)
+        get_new_mapping_cliente(cargas_dir, END_DATE, cargas_dir, END_DATE, emps)
 
     elif type_of_execution == 'correct_mapping':
         emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'correct_mapping')
