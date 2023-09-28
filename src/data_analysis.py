@@ -169,7 +169,7 @@ def agg_vendas_clientes(vendas_df):
     if start_date == end_date:
         n_clientes_6_meses = 0
         agg_new = pd.DataFrame(index = [end_date])
-        agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
+        agg_new['Quantidade Totalizada Clientes Ativos'] = n_clientes_6_meses
         return agg_new
     
     endDate = end_date
@@ -185,7 +185,7 @@ def agg_vendas_clientes(vendas_df):
                 df = vendas_df[mask]
                 n_clientes_6_meses = df['Cliente'].nunique()
                 agg_new = pd.DataFrame(index = [endDate])
-                agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
+                agg_new['Quantidade Totalizada Clientes Ativos'] = n_clientes_6_meses
                 agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
                 
                 endDate -= pd.DateOffset(months = 1)
@@ -196,7 +196,7 @@ def agg_vendas_clientes(vendas_df):
         n_clientes_6_meses = df['Cliente'].nunique()
 
         agg_new = pd.DataFrame(index = [endDate])
-        agg_new['Clientes Ativos 6 Meses'] = n_clientes_6_meses
+        agg_new['Quantidade Totalizada Clientes Ativos'] = n_clientes_6_meses
         agg_v_clientes = pd.concat([agg_new, agg_v_clientes])
 
         endDate -= pd.DateOffset(months = 1)
@@ -205,17 +205,18 @@ def agg_vendas_clientes(vendas_df):
 
 def agg_clientes_mapping(clientes_agrupado):
     agg = pd.DataFrame()
-    agg['Cliente Quantidade Totalizada'] = clientes_agrupado.agg({'Origem': 'count'})
+    agg['Quantidade Totalizada Clientes'] = clientes_agrupado.agg({'Origem': 'count'})
 
     agg = agg.unstack(level = -1)
     agg = agg.dropna(axis = 1, how='all')
     agg = agg.fillna(0)
     return agg
 
-def test_clientes_to_excel(path, agg_clientes, agg_v_clientes):
+def test_clientes_to_excel(path, agg_clientes, agg_clientes_total, agg_v_clientes):
     agg_file = path / 'test_agg_clientes.xlsx'
     with pd.ExcelWriter(agg_file) as writer:
         agg_clientes.to_excel(writer, sheet_name = 'grupo_clientes')
+        agg_clientes_total.to_excel(writer, sheet_name = 'grupo_total')
         agg_v_clientes.to_excel(writer, sheet_name = 'ativos_clientes')
 
 def test_clientes(vendas_df, clientes_df, mapping_clientes_df):
@@ -225,13 +226,15 @@ def test_clientes(vendas_df, clientes_df, mapping_clientes_df):
     clientes_df['_grupo'] = clientes_df['_grupo'].fillna('NULL')
 
     clientes_agrupado = clientes_df.groupby([pd.Grouper(key = 'Inclusão', freq = '1M'), '_grupo'], dropna = False)
+    clientes_agrupado_tempo = clientes_df.groupby([pd.Grouper(key = 'Inclusão', freq = '1M')])
+
     agg_clientes = agg_clientes_mapping(clientes_agrupado)
-
-    agg_v_clientes = agg_vendas_clientes(vendas_df)
-
     agg_clientes = agg_clientes.last('6M')
+    agg_clientes_total = pd.DataFrame()
+    agg_clientes_total['Quantidade Totalizada Clientes'] = clientes_agrupado_tempo.agg({'Origem': 'count'}).last('6M')
+    agg_v_clientes = agg_vendas_clientes(vendas_df)
     agg_v_clientes = agg_v_clientes.last('6M')
-    return [agg_clientes, agg_v_clientes]
+    return [agg_clientes, agg_clientes_total, agg_v_clientes]
 
 def correct_new_mapping(paths_correct_new_mapping):
     useful_cols = ['Categoria', 'Pilar', 'Grupo']

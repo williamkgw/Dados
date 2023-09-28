@@ -121,4 +121,5 @@ def get_files_path_control(input_dir, date, control_type, emp):
 
 END_DATE = datetime.date(day = 31, month = 8, year = 2023)
 BEG_DATE = datetime.date(day = 31, month = 7, year = 2023)
+
 INPUT_DIR = Path('data/input')

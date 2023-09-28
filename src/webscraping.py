@@ -26,7 +26,7 @@ def halt_for_download(download_dir, timeout):
         sleep(timeout)
 
 def init_driver(download_dir):
-    chrome_driver_path = Path('thirdparty/chromedriver_win32/chromedriver.exe')
+    chrome_driver_path = Path('thirdparty/chromedriver-win32/chromedriver.exe')
     download_dir_path_str = str(download_dir.resolve())
     prefs = dict([('download.default_directory', download_dir_path_str)])
     options = webdriver.ChromeOptions()
@@ -234,6 +234,7 @@ def main():
 
     if type_of_execution == 'webscraping':
         emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'webscraping')
+        print(emps)
         get_logins(cargas_dir, Path('Senhas de acessos.xlsx'), emps, END_DATE)
 
 if __name__ == '__main__':

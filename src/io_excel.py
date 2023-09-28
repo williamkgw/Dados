@@ -340,7 +340,13 @@ def main():
     assert len(sys.argv) == 2
     type_of_execution = sys.argv[1]
 
-    if type_of_execution == 'new_mapping':
+    if type_of_execution == 'mapping':
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping')
+        print(emps)
+        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('mapping.xlsx')
+        df_all(new_mapping_paths, emps, f'{INPUT_DIR}/mapping_all.xlsx', 3)
+
+    elif type_of_execution == 'new_mapping':
         emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
         print(emps)
         new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')

@@ -137,7 +137,8 @@ def main():
         get_file_on_dir(import_item_paths, emps, INPUT_DIR, END_DATE)
 
     elif type_of_execution == 'ftp_dir':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'import_automatico')
+        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'ftp_dir')
+        print(emps)
         remove_all_inside_results(INPUT_DIR)
         copy_dir_to_export(INPUT_DIR, END_DATE, emps)
         ftp_dir(INPUT_DIR, END_DATE, emps)
