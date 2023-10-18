@@ -212,8 +212,13 @@ def agg_clientes_mapping(clientes_agrupado):
     agg = agg.fillna(0)
     return agg
 
-def test_clientes_to_excel(path, agg_clientes, agg_clientes_total, agg_v_clientes):
+def test_clientes_to_excel(path, agg_clientes, agg_clientes_total, agg_v_clientes, clientes_df):
     agg_file = path / 'test_agg_clientes.xlsx'
+
+    analitico_dir = path.parents[3] / 'Clientes'
+    analitico_dir.mkdir(exist_ok = 'True')
+    analitico_clientes_csv_f = analitico_dir / 'clientes_csv.xlsx'
+    clientes_df.to_excel(analitico_clientes_csv_f)
     with pd.ExcelWriter(agg_file) as writer:
         agg_clientes.to_excel(writer, sheet_name = 'grupo_clientes')
         agg_clientes_total.to_excel(writer, sheet_name = 'grupo_total')
@@ -234,7 +239,7 @@ def test_clientes(vendas_df, clientes_df, mapping_clientes_df):
     agg_clientes_total['Quantidade Totalizada Clientes'] = clientes_agrupado_tempo.agg({'Origem': 'count'}).last('6M')
     agg_v_clientes = agg_vendas_clientes(vendas_df)
     agg_v_clientes = agg_v_clientes.last('6M')
-    return [agg_clientes, agg_clientes_total, agg_v_clientes]
+    return [agg_clientes, agg_clientes_total, agg_v_clientes, clientes_df]
 
 def correct_new_mapping(paths_correct_new_mapping):
     useful_cols = ['Categoria', 'Pilar', 'Grupo']
