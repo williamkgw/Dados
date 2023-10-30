@@ -7,7 +7,7 @@ env/**
 
 src/__pycache__
 
-thirdparty/chromedriver_win32/*
+thirdparty/**
 
 # Ignoring all excel files
 *.xlsx
