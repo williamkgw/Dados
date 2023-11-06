@@ -2,6 +2,7 @@ import pandas as pd
 import locale
 import datetime
 from pathlib import Path
+import yaml
 
 def get_year_month_str(date):
     locale.setlocale(locale.LC_ALL, 'pt_pt.UTF-8')
@@ -119,6 +120,11 @@ def get_files_path_control(input_dir, date, control_type, emp):
     dict_control_type_paths = get_dict_control_type_paths(cargas_dir, emp, date)
     return dict_control_type_paths[control_type]
 
-END_DATE = datetime.date(day = 28, month = 2, year = 2023)
-BEG_DATE = datetime.date(day = 31, month = 1, year = 2023)
-INPUT_DIR = Path('data/input')
+config_path = Path('data/data.yaml')
+with open(config_path, 'r') as file:
+    config = yaml.safe_load(file)
+
+END_DATE = config['dates']['end_date']
+BEG_DATE = config['dates']['beg_date']
+
+INPUT_DIR = Path(config['dirs']['input_dir'])

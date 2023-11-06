@@ -1,12 +1,14 @@
 # Ignoring all data inputs and outputs.
 
-/data/**
-!/data/**/
-!/data/**/.keep
+data/**
+!data/**/.keep
 
-/src/__pycache__
+env/**
+
+src/__pycache__
+
+thirdparty/**
 
 # Ignoring all excel files
-thirdparty/chromedriver_win32/*
 *.xlsx
 *.csv
