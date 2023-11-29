@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 import logging
 
-import carga_control
+import src.utils as utils
+from src.config import END_DATE, INPUT_DIR
 
 def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols):
     id_item_col = 'ID do Item'
@@ -253,7 +254,7 @@ def get_mapping_item(import_paths, emps_filter, input_dir, end_date):
             continue
         print(emp)
         
-        carga_dir = carga_control.get_carga_dir(input_dir, emp, end_date)
+        carga_dir = utils.get_carga_dir(input_dir, emp, end_date)
         mapping = carga_dir / 'mapping.xlsx'
         template_mapping_item_f = carga_dir / 'mapping_item.xlsx'
 
@@ -267,7 +268,7 @@ def get_med_import(import_paths, emps_filter, input_dir, end_date):
             continue
         print(emp)
 
-        carga_dir = carga_control.get_carga_dir(input_dir, emp, end_date)
+        carga_dir = utils.get_carga_dir(input_dir, emp, end_date)
         mapping_item = carga_dir / 'mapping_item.xlsx'
         import_file = carga_dir / 'import.xlsx'
         output_dir = carga_dir / 'output'
@@ -279,7 +280,7 @@ def get_med_import(import_paths, emps_filter, input_dir, end_date):
         df.to_excel(out_import_file)
 
 def triple_check(out_imports, emps_filter, input_dir, end_date):
-    cargas_dir = carga_control.get_cargas_dir(input_dir, end_date)
+    cargas_dir = utils.get_cargas_dir(input_dir, end_date)
     icg_import_f = cargas_dir / 'icg_export.xlsx'
     icg_import_cols = ('ID do Item', 'Mês', 'Ano',
                        'Medição', 'Item', 'Totalizado'
@@ -313,27 +314,25 @@ def triple_check(out_imports, emps_filter, input_dir, end_date):
 def main():
     import sys
 
-    END_DATE = carga_control.END_DATE
-    INPUT_DIR = carga_control.INPUT_DIR
-    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
+    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
     logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
 
-    assert len(sys.argv) == 2
-    type_of_execution = sys.argv[1]
+    assert len(sys.argv) == 3
+    type_of_execution = sys.argv[-1]
 
     if type_of_execution == 'mapping_item':
         import_paths = cargas_dir.rglob('import.xlsx')
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
         get_mapping_item(import_paths, emps, INPUT_DIR, END_DATE)
 
     elif type_of_execution == 'import_automatico':
         import_paths = cargas_dir.rglob('import.xlsx')
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'import_automatico')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'import_automatico')
         get_med_import(import_paths, emps, INPUT_DIR, END_DATE)
 
     elif type_of_execution == 'triple_check':
         out_imports = cargas_dir.rglob('out_import.xlsx')
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'triple_check')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'triple_check')
         triple_check(out_imports, emps, INPUT_DIR, END_DATE)
 
 if __name__ == '__main__':

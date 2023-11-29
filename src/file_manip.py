@@ -1,7 +1,9 @@
 import shutil
 import logging
-import carga_control
 import pandas as pd
+
+import src.utils as utils
+from src.config import BEG_DATE, END_DATE, INPUT_DIR
 
 def update_import_date(paths, emps_filter, date):
     for path in paths:
@@ -37,7 +39,7 @@ def get_file_on_dir(paths, emps_filter, input_dir, end_date):
         if emp not in emps_filter:
             continue
         filename_with_extension = path.name
-        output_path = carga_control.get_carga_dir(input_dir, emp, end_date) / filename_with_extension
+        output_path = utils.get_carga_dir(input_dir, emp, end_date) / filename_with_extension
         shutil.copy2(path, output_path)
 
 def backup_import(paths):
@@ -68,7 +70,7 @@ def remove_all_inside_results(input_dir):
 
 def ftp_dir(input_dir, date, emps):
     dest_dir = input_dir / '.result/imports'
-    cargas_dir = carga_control.get_cargas_dir(input_dir, date)
+    cargas_dir = utils.get_cargas_dir(input_dir, date)
     dest_dir.mkdir(parents = True, exist_ok = True)
     for file in sorted(dest_dir.glob('*.xlsx')):
         file.unlink()
@@ -86,7 +88,7 @@ def ftp_dir(input_dir, date, emps):
 
 def copy_dir_to_export(input_dir, date, emps):
     dest_dir = input_dir / '.result/dirs'
-    cargas_dir = carga_control.get_cargas_dir(input_dir, date)
+    cargas_dir = utils.get_cargas_dir(input_dir, date)
     dest_dir.mkdir(parents = True, exist_ok = True)
     dirs = [dir for dir in list(cargas_dir.glob('*')) if dir.name in emps if dir.is_dir()]
 
@@ -96,48 +98,45 @@ def copy_dir_to_export(input_dir, date, emps):
 def main():
     import sys
 
-    END_DATE = carga_control.END_DATE
-    BEG_DATE = carga_control.BEG_DATE
-    INPUT_DIR = carga_control.INPUT_DIR
-    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
+    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
     logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
 
-    assert len(sys.argv) == 2
-    type_of_execution = sys.argv[1]
+    assert len(sys.argv) == 3
+    type_of_execution = sys.argv[-1]
 
     if type_of_execution == 'mapping':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping')
         print(emps)
-        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('new_mapping.xlsx')
+        new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('new_mapping.xlsx')
         get_file_on_dir(new_mapping_paths, emps, INPUT_DIR, END_DATE)
-        new_mapping_copied_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
+        new_mapping_copied_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
         change_filename_on_dir(new_mapping_copied_paths, emps, 'mapping.xlsx')
 
     if type_of_execution == 'mapping_cliente':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_cliente')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_cliente')
         print(emps)
-        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('new_mapping_cliente.xlsx')
+        new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('new_mapping_cliente.xlsx')
         get_file_on_dir(new_mapping_paths, emps, INPUT_DIR, END_DATE)
-        new_mapping_copied_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
+        new_mapping_copied_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
         change_filename_on_dir(new_mapping_copied_paths, emps, 'mapping_cliente.xlsx')
 
     elif type_of_execution == 'import':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'import')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'import')
         print(emps)
-        import_paths = carga_control.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('import.xlsx')
+        import_paths = utils.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('import.xlsx')
         get_file_on_dir(import_paths, emps, INPUT_DIR, END_DATE)
-        import_copied_paths = list(carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('import.xlsx'))
+        import_copied_paths = list(utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('import.xlsx'))
         update_import_date(import_copied_paths, emps, END_DATE)
         reset_medicao_import(import_copied_paths, emps)
 
     elif type_of_execution == 'mapping_item':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
         print(emps)
-        import_item_paths = carga_control.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('mapping_item.xlsx')
+        import_item_paths = utils.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('mapping_item.xlsx')
         get_file_on_dir(import_item_paths, emps, INPUT_DIR, END_DATE)
 
     elif type_of_execution == 'ftp_dir':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'ftp_dir')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'ftp_dir')
         print(emps)
         remove_all_inside_results(INPUT_DIR)
         copy_dir_to_export(INPUT_DIR, END_DATE, emps)

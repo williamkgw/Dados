@@ -11,7 +11,8 @@ import datetime
 from pathlib import Path
 import logging
 
-import carga_control
+import src.utils as utils
+from src.config import END_DATE, INPUT_DIR
 
 def list_download_files_in_download_dir(download_dir):
     return list(download_dir.glob('*crdownload'))
@@ -224,16 +225,14 @@ def get_logins(cargas_dir, acess_pass_f, emps, date):
 def main():
     import sys
 
-    END_DATE  = carga_control.END_DATE
-    INPUT_DIR = carga_control.INPUT_DIR
-    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
+    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
     logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
 
-    assert len(sys.argv) == 2
-    type_of_execution = sys.argv[1]
+    assert len(sys.argv) == 3
+    type_of_execution = sys.argv[-1]
 
     if type_of_execution == 'webscraping':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'webscraping')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'webscraping')
         print(emps)
         get_logins(cargas_dir, Path('Senhas de acessos.xlsx'), emps, END_DATE)
 
