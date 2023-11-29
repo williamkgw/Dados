@@ -92,7 +92,7 @@ class TestClientes(unittest.TestCase):
         vendas_df =  init_vendas(self.configs.vendas_f)
         clientes_df = init_clientes(self.configs.clientes_f, self.configs.end_date)
         mapping_clientes_df = init_mapping_clientes(self.configs.mapping_clientes_f)
-        mapping_clientes_df = test_mapping_clientes(mapping_clientes_df, self.configs.output_dir)
+        mapping_clientes_df, *_ = test_mapping_clientes(mapping_clientes_df, self.configs.output_dir)
         dfs = test_clientes(vendas_df, clientes_df, mapping_clientes_df)[0:3]
         dfs1 = read_clientes(self.configs.test_agg_clientes_f)
 
