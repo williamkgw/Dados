@@ -1,7 +1,9 @@
 from pathlib import Path
 import pandas as pd
 import logging
-import carga_control
+
+import src.utils as utils
+from src.config import END_DATE, INPUT_DIR
 
 def search_files(root_dir, pattern):
     return sorted(root_dir.rglob(pattern))
@@ -289,7 +291,7 @@ def delete_files(paths):
         path.unlink()
 
 def delete_input_data_carga(input_dir, date):
-    cargas_dir = carga_control.get_cargas_dir(input_dir , date)
+    cargas_dir = utils.get_cargas_dir(input_dir , date)
     vendas_paths = cargas_dir.rglob('Vendas.csv')
     clientes_paths = cargas_dir.rglob('Clientes.csv')
 
@@ -332,36 +334,34 @@ def df_all_to_df(path_all_f):
 def main():
     import sys
 
-    END_DATE = carga_control.END_DATE
-    INPUT_DIR = carga_control.INPUT_DIR
-    cargas_dir = carga_control.get_cargas_dir(INPUT_DIR, END_DATE)
+    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
     logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
 
-    assert len(sys.argv) == 2
-    type_of_execution = sys.argv[1]
+    assert len(sys.argv) == 3
+    type_of_execution = sys.argv[-1]
 
     if type_of_execution == 'mapping':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping')
         print(emps)
-        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('mapping.xlsx')
+        new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('mapping.xlsx')
         df_all(new_mapping_paths, emps, f'{INPUT_DIR}/mapping_all.xlsx', 3)
 
     elif type_of_execution == 'new_mapping':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
         print(emps)
-        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
+        new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping.xlsx')
         df_all(new_mapping_paths, emps, f'{INPUT_DIR}/new_mapping_all.xlsx', 3)
 
     elif type_of_execution == 'new_mapping_cliente':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping_cliente')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping_cliente')
         print(emps)
-        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
+        new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
         df_all(new_mapping_paths, emps, f'{INPUT_DIR}/new_mapping_cliente_all.xlsx', 3)
 
     elif type_of_execution == 'mapping_item':
-        emps = carga_control.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
+        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
         print(emps)
-        new_mapping_paths = carga_control.get_cargas_dir(INPUT_DIR, END_DATE).rglob('mapping_item.xlsx')
+        new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('mapping_item.xlsx')
         df_all(new_mapping_paths, emps, f'{INPUT_DIR}/mapping_item_all.xlsx', 3)
 
     elif type_of_execution == 'new_mapping_all':

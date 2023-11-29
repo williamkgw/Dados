@@ -1,6 +1,5 @@
 import pandas as pd
 import locale
-import datetime
 from pathlib import Path
 import yaml
 
@@ -120,11 +119,10 @@ def get_files_path_control(input_dir, date, control_type, emp):
     dict_control_type_paths = get_dict_control_type_paths(cargas_dir, emp, date)
     return dict_control_type_paths[control_type]
 
-config_path = Path('data/data.yaml')
-with open(config_path, 'r') as file:
-    config = yaml.safe_load(file)
+def get_config(config_path):
 
-END_DATE = config['dates']['end_date']
-BEG_DATE = config['dates']['beg_date']
+    config_path = Path(config_path)
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
 
-INPUT_DIR = Path(config['dirs']['input_dir'])
+    return config

@@ -1,14 +1,16 @@
 # Ignoring all data inputs and outputs.
 
 data/**
-!data/**/.keep
+!data/.keep
 
-env/**
+# Virtual environment
+env/
 
-src/__pycache__
+## Compiled bytecode files
+__pycache__/
 
-thirdparty/**
+# Thirdparty dependencies
+thirdparty/
 
-# Ignoring all excel files
-*.xlsx
-*.csv
+# Vscode configs
+.vscode/
