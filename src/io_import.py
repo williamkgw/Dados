@@ -5,7 +5,7 @@ import logging
 import src.utils as utils
 from src.config import END_DATE, INPUT_DIR
 
-def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols):
+def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols, n):
     id_item_col = 'ID do Item'
     constant_col = 'Multiplicador'
 
@@ -20,14 +20,14 @@ def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols):
             if type(med_s) == int:
                 med = med_s
             else:
-                med = med_s.iloc[-1]
+                med = med_s.iloc[n]
         else:
             column = row[mapping_item_cols]
             med_s = agg_vendas_df.get(column, default = 0)
             if type(med_s) == int:
                 med = med_s
             else:
-                med = med_s.iloc[-1]
+                med = med_s.iloc[n]
 
         k = row[constant_col]
         import_df.loc[index, 'Medição'] = k*med
@@ -92,73 +92,73 @@ def filter_mapping_item_df(mapping_item_df, type_of_filtering):
 
     return null_mapping_item_df
 
-def med_grupo(import_df, agg_vendas_df, mapping_item_df):
+def med_grupo(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = ['Op', 'Pilar', 'Grupo']
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'grupo')
     import_df = med_n_levels(import_df, agg_vendas_df, 
-                                mapping_item_df, mapping_item_cols)
+                                mapping_item_df, mapping_item_cols, n)
 
     return import_df
 
-def med_pilar(import_df, agg_vendas_df, mapping_item_df):
+def med_pilar(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = ['Op', 'Categoria', 'Pilar']
 
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'pilar')
 
     import_df = med_n_levels(import_df, agg_vendas_df, 
-                                mapping_item_df, mapping_item_cols)
+                                mapping_item_df, mapping_item_cols, n)
 
     return import_df
 
-def med_categoria(import_df, agg_vendas_df, mapping_item_df):
+def med_categoria(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = ['Op', 'Categoria']
 
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'categoria')
 
     import_df = med_n_levels(import_df, agg_vendas_df, 
-                                mapping_item_df, mapping_item_cols)
+                                mapping_item_df, mapping_item_cols, n)
 
     return import_df
     
-def med_total(import_df, agg_vendas_df, mapping_item_df):
+def med_total(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = 'Op'
 
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'total')
 
     import_df = med_n_levels(import_df, agg_vendas_df, 
-                                mapping_item_df, mapping_item_cols)
+                                mapping_item_df, mapping_item_cols, n)
 
     return import_df
 
-def med_execao(import_df, agg_vendas_df, mapping_item_df):
+def med_execao(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = 'Op_execao'
 
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'exception')
 
     import_df = med_n_levels(import_df, agg_vendas_df, 
-                                mapping_item_df, mapping_item_cols)
+                                mapping_item_df, mapping_item_cols, n)
 
     return import_df
 
-def med_clientes_grupo(import_df, agg_clientes_df, mapping_item_df):
+def med_clientes_grupo(import_df, agg_clientes_df, mapping_item_df, n):
     mapping_item_cols = ['Op', 'Grupo']
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'grupo_cliente')
-    import_df = med_n_levels(import_df, agg_clientes_df, mapping_item_df, mapping_item_cols)
+    import_df = med_n_levels(import_df, agg_clientes_df, mapping_item_df, mapping_item_cols, n)
     return import_df
 
-def med_clientes_total(import_df, agg_clientes_df, mapping_item_df):
+def med_clientes_total(import_df, agg_clientes_df, mapping_item_df, n):
     mapping_item_cols = 'Op'
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'grupo_total')
-    import_df = med_n_levels(import_df, agg_clientes_df, mapping_item_df, mapping_item_cols)
+    import_df = med_n_levels(import_df, agg_clientes_df, mapping_item_df, mapping_item_cols, n)
     return import_df
 
-def med_clientes_total_ativos(import_df, agg_clientes_total_df, mapping_item_df):
+def med_clientes_total_ativos(import_df, agg_clientes_total_df, mapping_item_df, n):
     mapping_item_cols = 'Op'
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'total_cliente')
-    import_df = med_n_levels(import_df, agg_clientes_total_df, mapping_item_df, mapping_item_cols)
+    import_df = med_n_levels(import_df, agg_clientes_total_df, mapping_item_df, mapping_item_cols, n)
     return import_df
 
-def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file):
+def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
     id_item_col = 'ID do Item'
 
     import_df = pd.read_excel(import_file, index_col = id_item_col)
@@ -173,19 +173,19 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file):
 
     mapping_item_df = pd.read_excel(mapping_item_file, index_col = id_item_col) 
 
-    import_df = med_grupo(import_df, agg_vendas_grupo_df, mapping_item_df)
-    import_df = med_pilar(import_df, agg_vendas_pil_df, mapping_item_df)
-    import_df = med_categoria(import_df, agg_vendas_cat_df, mapping_item_df)
-    import_df = med_total(import_df, agg_vendas_tot_df, mapping_item_df)
-    import_df = med_execao(import_df, agg_vendas_exec_df, mapping_item_df)
+    import_df = med_grupo(import_df, agg_vendas_grupo_df, mapping_item_df, n)
+    import_df = med_pilar(import_df, agg_vendas_pil_df, mapping_item_df, n)
+    import_df = med_categoria(import_df, agg_vendas_cat_df, mapping_item_df, n)
+    import_df = med_total(import_df, agg_vendas_tot_df, mapping_item_df, n)
+    import_df = med_execao(import_df, agg_vendas_exec_df, mapping_item_df, n)
     
     agg_clientes_grupo_df = pd.read_excel(agg_clientes_file, header = arithmetic_seq_list(2), sheet_name = 'grupo_clientes')
     agg_clientes_total_df = pd.read_excel(agg_clientes_file, header = arithmetic_seq_list(1), sheet_name = 'grupo_total')
     agg_clientes_total_ativos_df = pd.read_excel(agg_clientes_file, header = arithmetic_seq_list(1), sheet_name = 'ativos_clientes')
     
-    import_df = med_clientes_grupo(import_df, agg_clientes_grupo_df, mapping_item_df)
-    import_df = med_clientes_total(import_df, agg_clientes_total_df, mapping_item_df)
-    import_df = med_clientes_total_ativos(import_df, agg_clientes_total_ativos_df, mapping_item_df)
+    import_df = med_clientes_grupo(import_df, agg_clientes_grupo_df, mapping_item_df, n)
+    import_df = med_clientes_total(import_df, agg_clientes_total_df, mapping_item_df, n)
+    import_df = med_clientes_total_ativos(import_df, agg_clientes_total_ativos_df, mapping_item_df, n)
 
     import_df = import_df.dropna(subset = ('Mês', 'Ano'))
     import_df = import_df.replace([np.inf, -np.inf], 0)
@@ -276,7 +276,7 @@ def get_med_import(import_paths, emps_filter, input_dir, end_date):
         agg_clientes_file = output_dir / 'test_agg_clientes.xlsx'
         out_import_file = output_dir / 'out_import.xlsx'
 
-        df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item)
+        df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item, -1)
         df.to_excel(out_import_file)
 
 def triple_check(out_imports, emps_filter, input_dir, end_date):
