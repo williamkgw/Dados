@@ -1,6 +1,7 @@
-import pandas as pd
 import locale
+import shutil
 from pathlib import Path
+import pandas as pd
 import yaml
 
 def get_year_month_str(date):
@@ -113,6 +114,22 @@ def get_dict_control_type_paths(cargas_dir, emp, date):
     }
 
     return dict_control_type_paths
+
+def get_file_on_dir(paths, emps_filter, input_dir, end_date):
+    for path in paths:
+        emp = path.parents[3].name
+        if emp not in emps_filter:
+            continue
+        filename_with_extension = path.name
+        output_path = get_carga_dir(input_dir, emp, end_date) / filename_with_extension
+        shutil.copy2(path, output_path)
+
+def change_filename_on_dir(paths, emps_filter, filename):
+    for path in paths:
+        emp = path.parents[3].name
+        if emp not in emps_filter:
+            continue
+        path.rename(path.parent / filename)
 
 def get_files_path_control(input_dir, date, control_type, emp):
     cargas_dir = get_cargas_dir(input_dir, date)
