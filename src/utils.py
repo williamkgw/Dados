@@ -105,6 +105,39 @@ def change_filename_on_dir(paths, emps_filter, filename):
             continue
         path.rename(path.parent / filename)
 
+def df_all(paths_f, emps_filter, path_all_f, n):
+    df = pd.DataFrame()
+
+    for path_f in paths_f:
+        emp = path_f.parents[n].name
+        if emp not in emps_filter:
+            continue
+        print(emp)
+        df_new = pd.read_excel(path_f)
+        df_new['Empresa'] = emp
+        df_new['path'] = path_f
+        df = pd.concat([df, df_new])
+    
+    df.to_excel(path_all_f, index = False)
+
+def df_all_to_df(path_all_f):
+
+    df = pd.read_excel(path_all_f, index_col = 0)
+
+    for name, group in df.groupby('Empresa'):
+        print(name)
+
+        path = group['path'].iloc[0]
+        path = Path(path)
+
+        df = pd.DataFrame(data = group, columns = group.columns[:-2])
+        
+        print(path)
+        if path.parent.is_dir():
+            df.to_excel(path)
+        else:
+            print('NÃO EXISTE: ', name)
+
 def get_config(config_path):
 
     config_path = Path(config_path)

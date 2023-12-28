@@ -1,7 +1,6 @@
 import argparse
 
 import src.data_analysis
-import src.io_excel
 import src.io_import
 import src.webscraping
 
@@ -39,6 +38,27 @@ def main():
         
         elif args.mode == 'ftp_dir':
             src.load.ftp_dir.load_ftp_dir()
+
+        elif args.mode == 'new_mapping_clientes_all':
+            src.load.mapping.mapping_clientes.load_new_mapping_clientes_all()
+
+        elif args.mode == 'mapping_item_all':
+            src.load.mapping.mapping_item.load_mapping_item_all()
+
+        elif args.mode == 'new_mapping_vendas_all':
+            src.load.mapping.mapping_vendas.load_new_mapping_vendas_all()
+
+        elif args.mode == 'new_mapping_clientes_all_to_company_dir':
+            src.load.mapping.mapping_clientes.load_new_mapping_clientes_all_to_company_dir()
+
+        elif args.mode == 'mapping_item_all_to_company_dir':
+            src.load.mapping.mapping_item.load_mapping_item_all_to_company_dir()
+
+        elif args.mode == 'new_mapping_vendas_all_to_company_dir':
+            src.load.mapping.mapping_vendas.load_new_mapping_vendas_all_to_company_dir()
+
+        elif args.mode == 'correct_new_mapping_vendas_all_to_company_dir':
+            src.load.mapping.mapping_vendas.load_correct_new_mapping_vendas_to_company_dir()
 
     # Programa Legado
 
