@@ -1,6 +1,3 @@
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.wait import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
@@ -222,19 +219,9 @@ def get_logins(cargas_dir, acess_pass_f, emps, date):
         except Exception as e:
             logging.warning(f'{emp}/Falha no Download/{e}')
 
-def main():
-    import sys
+def extract_webscraping():
 
     cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
-
-    assert len(sys.argv) == 3
-    type_of_execution = sys.argv[-1]
-
-    if type_of_execution == 'webscraping':
-        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'webscraping')
-        print(emps)
-        get_logins(cargas_dir, Path('Senhas de acessos.xlsx'), emps, END_DATE)
-
-if __name__ == '__main__':
-    main()
+    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'webscraping')
+    print(emps)
+    get_logins(cargas_dir, Path('Senhas de acessos.xlsx'), emps, END_DATE)

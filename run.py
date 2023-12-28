@@ -1,9 +1,13 @@
 import argparse
+import logging
 
 import src.data_analysis
 import src.io_import
-import src.webscraping
 
+from src.config import INPUT_DIR, END_DATE
+import src.utils as utils
+
+import src.extraction.webscraping
 import src.load.mapping.mapping_clientes
 import src.load.mapping.mapping_item
 import src.load.mapping.mapping_vendas
@@ -11,6 +15,8 @@ import src.load.import_icg
 import src.load.ftp_dir
 
 def main():
+    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
+    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
 
     parser = argparse.ArgumentParser(
                         description='Um programa para realizar ETL no sistema Quattrus'
@@ -22,8 +28,11 @@ def main():
     args = parser.parse_args()
 
     # Programa Refatorado
+    if args.file == 'extraction':
+        if args.mode == 'webscraping':
+            src.extraction.webscraping.extract_webscraping()
 
-    if args.file == 'load':
+    elif args.file == 'load':
         if args.mode == 'mapping_clientes':
             src.load.mapping.mapping_clientes.load_mapping_clientes()
 
@@ -65,17 +74,8 @@ def main():
     if args.file == 'data_analysis':
         src.data_analysis.main()
 
-    elif args.file == 'file_manip':
-        src.file_manip.main()
-
-    elif args.file == 'io_excel':
-        src.io_excel.main()
-
     elif args.file == 'io_import':
         src.io_import.main()
-        
-    elif args.file == 'webscraping':
-        src.webscraping.main()
 
 if __name__ == '__main__':
     main()
