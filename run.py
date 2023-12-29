@@ -2,12 +2,14 @@ import argparse
 import logging
 
 import src.data_analysis
-import src.io_import
 
 from src.config import INPUT_DIR, END_DATE
 import src.utils as utils
 
 import src.extraction.webscraping
+import src.transform.import_icg.import_icg
+import src.transform.import_icg.import_icg_triple_check
+import src.transform.mapping.mapping_item
 import src.load.mapping.mapping_clientes
 import src.load.mapping.mapping_item
 import src.load.mapping.mapping_vendas
@@ -31,6 +33,16 @@ def main():
     if args.file == 'extraction':
         if args.mode == 'webscraping':
             src.extraction.webscraping.extract_webscraping()
+
+    elif args.file == 'transform':
+        if args.mode == 'import_icg':
+            src.transform.import_icg.import_icg.transform_med_import()
+
+        elif args.mode == 'import_icg_triple_check':
+            src.transform.import_icg.import_icg_triple_check.transform_triple_check()
+
+        elif args.mode == 'mapping_item':
+            src.transform.mapping.mapping_item.transform_mapping_item()
 
     elif args.file == 'load':
         if args.mode == 'mapping_clientes':
@@ -73,9 +85,6 @@ def main():
 
     if args.file == 'data_analysis':
         src.data_analysis.main()
-
-    elif args.file == 'io_import':
-        src.io_import.main()
 
 if __name__ == '__main__':
     main()
