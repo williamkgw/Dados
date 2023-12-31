@@ -1,15 +1,16 @@
 import argparse
 import logging
 
-import src.data_analysis
-
 from src.config import INPUT_DIR, END_DATE
 import src.utils as utils
 
 import src.extraction.webscraping
 import src.transform.import_icg.import_icg
 import src.transform.import_icg.import_icg_triple_check
+import src.transform.mapping.mapping_clientes
 import src.transform.mapping.mapping_item
+import src.transform.mapping.mapping_vendas
+import src.transform.clientes_vendas
 import src.load.mapping.mapping_clientes
 import src.load.mapping.mapping_item
 import src.load.mapping.mapping_vendas
@@ -29,7 +30,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Programa Refatorado
     if args.file == 'extraction':
         if args.mode == 'webscraping':
             src.extraction.webscraping.extract_webscraping()
@@ -43,6 +43,18 @@ def main():
 
         elif args.mode == 'mapping_item':
             src.transform.mapping.mapping_item.transform_mapping_item()
+        
+        elif args.mode == 'new_mapping':
+            src.transform.mapping.mapping_vendas.transform_new_mapping()
+
+        elif args.mode == 'new_mapping_cliente':
+            src.transform.mapping.mapping_clientes.transform_new_mapping_clientes()
+
+        elif args.mode == 'correct_new_mapping':
+            src.transform.mapping.mapping_vendas.transform_correct_new_mapping()
+
+        elif args.mode == 'data_analysis':
+            src.transform.clientes_vendas.transform_data_analysis()
 
     elif args.file == 'load':
         if args.mode == 'mapping_clientes':
@@ -80,11 +92,6 @@ def main():
 
         elif args.mode == 'correct_new_mapping_vendas_all_to_company_dir':
             src.load.mapping.mapping_vendas.load_correct_new_mapping_vendas_to_company_dir()
-
-    # Programa Legado
-
-    if args.file == 'data_analysis':
-        src.data_analysis.main()
 
 if __name__ == '__main__':
     main()
