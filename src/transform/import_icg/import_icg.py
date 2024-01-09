@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import logging
 
 import src.utils as utils
 from src.config import END_DATE, INPUT_DIR
@@ -102,9 +101,7 @@ def med_grupo(import_df, agg_vendas_df, mapping_item_df, n):
 
 def med_pilar(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = ['Op', 'Categoria', 'Pilar']
-
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'pilar')
-
     import_df = med_n_levels(import_df, agg_vendas_df, 
                                 mapping_item_df, mapping_item_cols, n)
 
@@ -112,9 +109,7 @@ def med_pilar(import_df, agg_vendas_df, mapping_item_df, n):
 
 def med_categoria(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = ['Op', 'Categoria']
-
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'categoria')
-
     import_df = med_n_levels(import_df, agg_vendas_df, 
                                 mapping_item_df, mapping_item_cols, n)
 
@@ -122,9 +117,7 @@ def med_categoria(import_df, agg_vendas_df, mapping_item_df, n):
     
 def med_total(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = 'Op'
-
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'total')
-
     import_df = med_n_levels(import_df, agg_vendas_df, 
                                 mapping_item_df, mapping_item_cols, n)
 
@@ -132,9 +125,7 @@ def med_total(import_df, agg_vendas_df, mapping_item_df, n):
 
 def med_execao(import_df, agg_vendas_df, mapping_item_df, n):
     mapping_item_cols = 'Op_execao'
-
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'exception')
-
     import_df = med_n_levels(import_df, agg_vendas_df, 
                                 mapping_item_df, mapping_item_cols, n)
 
@@ -163,7 +154,7 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
 
     import_df = pd.read_excel(import_file, index_col = id_item_col)
 
-    arithmetic_seq_list = lambda n : list(range(n))   
+    arithmetic_seq_list = lambda n : list(range(n))
 
     agg_vendas_grupo_df  = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(3), sheet_name = 'grupo') 
     agg_vendas_pil_df   = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(3), sheet_name = 'pilar') 
@@ -197,70 +188,6 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
     import_df[faixa_columns] = pd.NA
     return import_df
 
-def template_mapping_item_add_rows(mapping_df):
-
-    cat     = 'Categoria'
-    pil     = 'Pilar'
-    grup    = 'Grupo'
-    op      = 'Op'
-    op_exec = 'Op_execao'
-
-    get_unique_values_from_series = lambda df, column : list(set(df[column].values))
-
-    mapping_categoria_cols  = get_unique_values_from_series(mapping_df, cat)
-    mapping_pilar_cols      = get_unique_values_from_series(mapping_df, pil)
-    mapping_grupo_cols      = get_unique_values_from_series(mapping_df, grup)
-    op_cols                 = ['Faturamento Bruto', 'Faturamento Médio por Clientes', 'Preço Médio', 'Quantidade Totalizada', 'Tickets Médio']
-    op_exec_cols            = ['Consultas/Cirurgias', 'Consultas/Internação', 'Exames/Consultas']
-
-    df_cat           = pd.DataFrame(mapping_categoria_cols, columns = [cat])
-    df_pil           = pd.DataFrame(mapping_pilar_cols, columns = [pil])
-    df_grup          = pd.DataFrame(mapping_grupo_cols, columns = [grup])
-    df_op_cols       = pd.DataFrame(op_cols, columns = [op])
-    df_op_exec_cols  = pd.DataFrame(op_exec_cols, columns = [op_exec])
-
-    df = pd.concat([df_cat, df_pil, df_grup, df_op_cols, df_op_exec_cols]).reset_index(drop = True)
-    return df
-
-def template_mapping_item(import_file, mapping_file):
-    template_import_cols    =   ('ID do Item', 'Mês', 'Ano', 'Item')
-    template_filtering_cols =   ('Totalizado', )
-    import_df_cols = template_import_cols + template_filtering_cols
-
-    index_import = 'ID do Item'
-
-    import_df = pd.read_excel(import_file, usecols = import_df_cols, index_col = index_import)
-    filtered_import_df = import_df.drop(list(template_filtering_cols), axis = 1)
-        
-    mapping_df = pd.read_excel(mapping_file, index_col = 'Produto/serviço')
-    add_rows_df = template_mapping_item_add_rows(mapping_df)
-
-    mapping_item_df = pd.concat([filtered_import_df, add_rows_df])
-
-    mapping_item_df['Multiplicador'] = 1
-    mapping_item_df[add_rows_df.columns] = mapping_item_df[add_rows_df.columns].fillna('x')
-
-    output_path = mapping_file.parent / 'mapping_item.xlsx'
-
-    mapping_item_df.index.name = index_import
-    mapping_item_df.to_excel(output_path, index = index_import)
-
-    return mapping_item_df
-
-def get_mapping_item(import_paths, emps_filter, input_dir, end_date):
-    for import_path in import_paths:
-        emp = import_path.parents[3].name
-        if emp not in emps_filter:
-            continue
-        print(emp)
-        
-        carga_dir = utils.get_carga_dir(input_dir, emp, end_date)
-        mapping = carga_dir / 'mapping.xlsx'
-        template_mapping_item_f = carga_dir / 'mapping_item.xlsx'
-
-        template_mapping_item_df = template_mapping_item(import_path, mapping)
-        template_mapping_item_df.to_excel(template_mapping_item_f)
-
 def get_med_import(import_paths, emps_filter, input_dir, end_date):
     for import_path in import_paths:
         emp = import_path.parents[3].name
@@ -279,61 +206,8 @@ def get_med_import(import_paths, emps_filter, input_dir, end_date):
         df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item, -1)
         df.to_excel(out_import_file)
 
-def triple_check(out_imports, emps_filter, input_dir, end_date):
-    cargas_dir = utils.get_cargas_dir(input_dir, end_date)
-    icg_import_f = cargas_dir / 'icg_export.xlsx'
-    icg_import_cols = ('ID do Item', 'Mês', 'Ano',
-                       'Medição', 'Item', 'Totalizado'
-                        )
-    icg_import_df = pd.read_excel(icg_import_f, index_col = 'ID do Item', usecols = icg_import_cols)
-
-    df_all = pd.DataFrame()
-    for out_import in out_imports:
-        emp = out_import.parents[4].name
-        if emp not in emps_filter:
-            continue
-        print(emp)
-
-        out_import_df = pd.read_excel(out_import, index_col = 'ID do Item', usecols = icg_import_cols)
-
-        set_id_out_import = set(out_import_df.index)
-        set_id_icg_import = set(icg_import_df.index)
-        common_id_import = list(set_id_icg_import & set_id_out_import)
-
-        df = icg_import_df.loc[common_id_import, :]
-        df['Empresa'] = emp
-        df['Delta out_import'] = out_import_df.loc[common_id_import, 'Medição']
-        df['Delta out_import'] = df['Delta out_import'] - df['Medição']
-        df['Delta out_import'] = df['Delta out_import'].round(2)
-
-        df_all = pd.concat([df_all, df])
-
-    out_import_comp = cargas_dir / 'comp_icg_out_import.xlsx'
-    df_all.to_excel(out_import_comp)
-
-def main():
-    import sys
-
+def transform_med_import():
     cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
-
-    assert len(sys.argv) == 3
-    type_of_execution = sys.argv[-1]
-
-    if type_of_execution == 'mapping_item':
-        import_paths = cargas_dir.rglob('import.xlsx')
-        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
-        get_mapping_item(import_paths, emps, INPUT_DIR, END_DATE)
-
-    elif type_of_execution == 'import_automatico':
-        import_paths = cargas_dir.rglob('import.xlsx')
-        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'import_automatico')
-        get_med_import(import_paths, emps, INPUT_DIR, END_DATE)
-
-    elif type_of_execution == 'triple_check':
-        out_imports = cargas_dir.rglob('out_import.xlsx')
-        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'triple_check')
-        triple_check(out_imports, emps, INPUT_DIR, END_DATE)
-
-if __name__ == '__main__':
-    main()
+    import_paths = cargas_dir.rglob('import.xlsx')
+    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'import_automatico')
+    get_med_import(import_paths, emps, INPUT_DIR, END_DATE)

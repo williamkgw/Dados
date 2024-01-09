@@ -1,6 +1,7 @@
-import pandas as pd
 import locale
+import shutil
 from pathlib import Path
+import pandas as pd
 import yaml
 
 def get_year_month_str(date):
@@ -28,41 +29,10 @@ def load_carga_df(input_dir, date, excel_columns = None):
         )
     return carga_df
 
-def update_carga_df(carga_df, input_dir, date):
-    carga_path = get_carga_path(input_dir, date)
-    carga_path = carga_path.parent / 'new_carga.xlsx'
-    carga_df.to_excel(carga_path, index = 'Empresas')
-
-def is_done_carga(input_dir, date, control_type):
-    carga_df = load_carga_df(input_dir, date, ('Empresas', control_type))
-    done_emps = carga_df[carga_df[control_type] == True]
-    return  (done_emps.index)
-
 def is_not_done_carga(input_dir, date, control_type):
     carga_df = load_carga_df(input_dir, date, ('Empresas', control_type))
     not_done_emps = carga_df[carga_df[control_type] == False]
     return tuple(not_done_emps.index)
-
-def check_if_files_exist(path_files):
-    ret = True
-    for path_file in path_files:
-        ret = ret & path_file.is_file()
-    return ret
-
-def update_done_carga(input_dir, date, control_type):
-    carga_df = load_carga_df(input_dir, date)
-
-    for emp in carga_df.index:
-        print(emp)
-
-        paths = get_files_path_control(input_dir, date, control_type, emp)
-        files_exist = check_if_files_exist(paths)
-        print(files_exist)
-
-        carga_df.loc[emp, control_type] = files_exist
-
-    print(carga_df)
-    update_carga_df(carga_df, input_dir, date)
 
 def get_dict_control_type_paths(cargas_dir, emp, date):
     year_month_str = get_year_month_str(date)
@@ -118,6 +88,55 @@ def get_files_path_control(input_dir, date, control_type, emp):
     cargas_dir = get_cargas_dir(input_dir, date)
     dict_control_type_paths = get_dict_control_type_paths(cargas_dir, emp, date)
     return dict_control_type_paths[control_type]
+
+def get_file_on_dir(paths, emps_filter, input_dir, end_date):
+    for path in paths:
+        emp = path.parents[3].name
+        if emp not in emps_filter:
+            continue
+        filename_with_extension = path.name
+        output_path = get_carga_dir(input_dir, emp, end_date) / filename_with_extension
+        shutil.copy2(path, output_path)
+
+def change_filename_on_dir(paths, emps_filter, filename):
+    for path in paths:
+        emp = path.parents[3].name
+        if emp not in emps_filter:
+            continue
+        path.rename(path.parent / filename)
+
+def df_all(paths_f, emps_filter, path_all_f, n):
+    df = pd.DataFrame()
+
+    for path_f in paths_f:
+        emp = path_f.parents[n].name
+        if emp not in emps_filter:
+            continue
+        print(emp)
+        df_new = pd.read_excel(path_f)
+        df_new['Empresa'] = emp
+        df_new['path'] = path_f
+        df = pd.concat([df, df_new])
+    
+    df.to_excel(path_all_f, index = False)
+
+def df_all_to_df(path_all_f):
+
+    df = pd.read_excel(path_all_f, index_col = 0)
+
+    for name, group in df.groupby('Empresa'):
+        print(name)
+
+        path = group['path'].iloc[0]
+        path = Path(path)
+
+        df = pd.DataFrame(data = group, columns = group.columns[:-2])
+        
+        print(path)
+        if path.parent.is_dir():
+            df.to_excel(path)
+        else:
+            print('NÃO EXISTE: ', name)
 
 def get_config(config_path):
 
