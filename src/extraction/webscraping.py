@@ -155,6 +155,14 @@ def download_clientes(driver, download_dir):
     driver.execute_script("arguments[0].click();", relatorio_csv_button)
     halt_for_download(download_dir, 0.5)
 
+    relatorio_button = driver.find_element(By.XPATH, '//button[@id="p__btn_relatorio"]')
+    driver.execute_script("arguments[0].click();", relatorio_button)
+    sleep(0.5)
+
+    relatorio_csv_button = driver.find_element(By.XPATH, '//a[normalize-space()="Exportar clientes e animais para CSV"]')
+    driver.execute_script("arguments[0].click();", relatorio_csv_button)
+    halt_for_download(download_dir, 0.5)
+
 def download(name, password, clinica, out_dir, end_date):
     import numpy as np
 
