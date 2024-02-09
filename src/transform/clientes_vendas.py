@@ -7,11 +7,19 @@ import pandas as pd
 import datetime
 import numpy as np
 
+import shutil
+
+def copy_clientes_e_animais_to_dir(path):
+    clientes_e_animais_file = path.parents[0] / 'Animais_e_Clientes.csv'
+    clientes_e_animais_dir = path.parents[3] / 'Animais_e_Clientes'
+    clientes_e_animais_dir.mkdir(exist_ok = True)
+    shutil.copy2(clientes_e_animais_file, clientes_e_animais_dir)
+
 def test_clientes_to_excel(path, agg_clientes, agg_clientes_total, agg_v_clientes, clientes_df):
     agg_file = path / 'test_agg_clientes.xlsx'
 
     analitico_dir = path.parents[3] / 'Clientes'
-    analitico_dir.mkdir(exist_ok = 'True')
+    analitico_dir.mkdir(exist_ok = True)
     analitico_clientes_csv_f = analitico_dir / 'clientes_csv.xlsx'
     clientes_df.to_excel(analitico_clientes_csv_f)
     with pd.ExcelWriter(agg_file) as writer:
@@ -145,7 +153,7 @@ def test_vendas_to_excel(path, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg
     vendas_df.to_excel(vendas_csv_f)
 
     analitico_dir = path.parents[3] / 'Analitico'
-    analitico_dir.mkdir(exist_ok = 'True')
+    analitico_dir.mkdir(exist_ok = True)
     analitico_vendas_csv_f = analitico_dir / 'vendas_csv.xlsx'
     vendas_df.to_excel(analitico_vendas_csv_f)
     with pd.ExcelWriter(agg_f) as writer:
@@ -341,6 +349,8 @@ def get_analysis(mapping_f, vendas_f, mapping_clientes_f, clientes_f, path, end_
     clientes_df = init_clientes(clientes_f, end_date)
     result_clientes = test_clientes(vendas_df, clientes_df, mapping_clientes_df)
     test_clientes_to_excel(path, *result_clientes)
+
+    copy_clientes_e_animais_to_dir(path)
 
 def loop(input_dir, end_date, filter_emps):
     cargas_dir = utils.get_cargas_dir(input_dir, end_date)
