@@ -42,11 +42,6 @@ def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter
 
         try:
             dest_vendas_df = init_vendas(dest_vendas_f)
-            # dest_vendas_df = pd.read_csv(
-            #                  dest_vendas_f, thousands = '.', decimal = ',', 
-            #                  encoding = 'latin1', sep = ';', 
-            #                  parse_dates = ['Data e hora'], dayfirst=True
-            #                  )
         except Exception as e:
             logging.warning(f'{emp}/exception {e}')
             continue
@@ -54,6 +49,7 @@ def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter
         dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= src_date - datetime.timedelta(days = 180)]
         
         src_mapping_df = pd.read_excel(src_mapping, index_col = 'Produto/serviço', usecols = ('Produto/serviço', 'Categoria', 'Pilar', 'Grupo'))
+        src_mapping_df = src_mapping_df[~src_mapping_df.index.duplicated(keep = 'first')]
 
         dest_prod_serv_index = dest_vendas_df['Produto/serviço'].unique().tolist()
         src_prod_serv_index  = src_mapping_df.index.unique().tolist()
