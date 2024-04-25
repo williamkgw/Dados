@@ -244,8 +244,15 @@ def agg_configure_exception(vendas_agrupado_grupo):
     return agg_exception_df
 
 def test_inadimplente(vendas_df, end_date):
-    data = {'test1': [1,2,3,4], 'test2': [2, 4, 6, 8]}
-    return pd.DataFrame(data)
+    end_date_time_mask = end_date - pd.offsets.MonthBegin()
+    begin_date_time_mask = end_date - pd.offsets.DateOffset(years = 1) - 2*pd.offsets.MonthBegin()
+
+    time_mask = (vendas_df['Data e hora'] > begin_date_time_mask) & (vendas_df['Data e hora'] < end_date_time_mask)
+    baixa_mask = vendas_df['Status da venda'] != 'Baixado'
+    mask = time_mask & baixa_mask
+
+    inadimpl_df = vendas_df[mask].groupby(pd.Grouper(key = 'Data e hora', freq = 'M'))['Bruto'].agg('sum').rolling(window = 12).sum()
+    return inadimpl_df
 
 def test_vendas(vendas_df, mapping_vendas_df):
     # configuring
