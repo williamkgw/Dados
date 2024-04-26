@@ -252,7 +252,7 @@ def test_inadimplente(vendas_df, end_date):
     mask = time_mask & baixa_mask
 
     inadimpl_df = vendas_df[mask].groupby(pd.Grouper(key = 'Data e hora', freq = 'M'))['Bruto'].agg('sum').rolling(window = 12).sum()
-    return inadimpl_df
+    return inadimpl_df.rename('Inadimplencia do Faturamento Bruto')
 
 def test_vendas(vendas_df, mapping_vendas_df):
     # configuring
