@@ -43,25 +43,26 @@ def filter_mapping_item_df(mapping_item_df, type_of_filtering):
     has_total   = lambda column: mapping_item_df[column].str.casefold() == 'total'
     has_clientes = lambda: mapping_item_df['Op'] == 'Quantidade Totalizada Clientes'
     has_clientes_ativos = lambda: mapping_item_df['Op'] == 'Quantidade Totalizada Clientes Ativos'
+    has_inadimplencia = lambda: mapping_item_df['Op_execao'] == 'Inadimplencia do Faturamento Bruto'
 
     if type_of_filtering.casefold() == 'grupo_cliente':
-        mask = has_x(args[0]) & has_x(args[1]) & ~has_total(args[2]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4]) & has_clientes()
+        mask = has_x(args[0]) & has_x(args[1]) & ~has_total(args[2]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4]) & has_clientes() & ~has_clientes_ativos()
         mapping_item_df = mapping_item_df[mask]
         return mapping_item_df
     
     elif type_of_filtering.casefold() == 'grupo_total':
-        mask = has_x(args[0]) & has_x(args[1]) & has_total(args[2]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4]) & has_clientes()
+        mask = has_x(args[0]) & has_x(args[1]) & has_total(args[2]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4]) & has_clientes() & ~has_clientes_ativos()
         mapping_item_df = mapping_item_df[mask]
         return mapping_item_df
 
     elif type_of_filtering.casefold() == 'total_cliente':
-        mask = has_x(args[0]) & has_x(args[1]) & has_total(args[2]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4]) & has_clientes_ativos()
+        mask = has_x(args[0]) & has_x(args[1]) & has_total(args[2]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4]) & ~has_clientes() & has_clientes_ativos()
         mapping_item_df = mapping_item_df[mask]
         return mapping_item_df
 
     elif type_of_filtering.casefold() == 'grupo':
 
-        mask = has_x(args[0]) & ~has_x(args[1]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4])
+        mask = has_x(args[0]) & ~has_x(args[1]) & ~has_x(args[2]) & ~has_x(args[3]) & has_x(args[4]) & ~has_clientes() & ~has_clientes_ativos()
         mapping_item_df = mapping_item_df[mask]
         return mapping_item_df
 
@@ -85,7 +86,13 @@ def filter_mapping_item_df(mapping_item_df, type_of_filtering):
 
     elif type_of_filtering.casefold() == 'exception':
 
-        mask = has_x(args[0]) & has_x(args[1]) & has_x(args[2]) & has_x(args[3]) & ~has_x(args[4])
+        mask = has_x(args[0]) & has_x(args[1]) & has_x(args[2]) & has_x(args[3]) & ~has_x(args[4]) & ~has_inadimplencia()
+        mapping_item_df = mapping_item_df[mask]
+        return mapping_item_df
+    
+    elif type_of_filtering.casefold() == 'inadimplencia':
+
+        mask = has_x(args[0]) & has_x(args[1]) & has_x(args[2]) & has_x(args[3]) & ~has_x(args[4]) & has_inadimplencia()
         mapping_item_df = mapping_item_df[mask]
         return mapping_item_df
 
@@ -131,6 +138,14 @@ def med_execao(import_df, agg_vendas_df, mapping_item_df, n):
 
     return import_df
 
+def med_inadimplencia_df(import_df, agg_inadimplencia_df, mapping_item_df, n):
+    mapping_item_cols = 'Op_execao'
+    mapping_item_df = filter_mapping_item_df(mapping_item_df, 'inadimplencia')
+    import_df = med_n_levels(import_df, agg_inadimplencia_df, 
+                                mapping_item_df, mapping_item_cols, n)
+    
+    return import_df
+
 def med_clientes_grupo(import_df, agg_clientes_df, mapping_item_df, n):
     mapping_item_cols = ['Op', 'Grupo']
     mapping_item_df = filter_mapping_item_df(mapping_item_df, 'grupo_cliente')
@@ -156,18 +171,20 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
 
     arithmetic_seq_list = lambda n : list(range(n))
 
-    agg_vendas_grupo_df  = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(3), sheet_name = 'grupo') 
-    agg_vendas_pil_df   = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(3), sheet_name = 'pilar') 
-    agg_vendas_cat_df   = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(2), sheet_name = 'categoria') 
-    agg_vendas_tot_df   = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'total') 
-    agg_vendas_exec_df  = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'exception') 
+    agg_vendas_grupo_df  = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(3), sheet_name = 'grupo')
+    agg_vendas_pil_df   = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(3), sheet_name = 'pilar')
+    agg_vendas_cat_df   = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(2), sheet_name = 'categoria')
+    agg_vendas_tot_df   = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'total')
+    agg_inadimplencia_df = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'inadimplencia')
+    agg_vendas_exec_df  = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'exception')
 
-    mapping_item_df = pd.read_excel(mapping_item_file, index_col = id_item_col) 
+    mapping_item_df = pd.read_excel(mapping_item_file, index_col = id_item_col)
 
     import_df = med_grupo(import_df, agg_vendas_grupo_df, mapping_item_df, n)
     import_df = med_pilar(import_df, agg_vendas_pil_df, mapping_item_df, n)
     import_df = med_categoria(import_df, agg_vendas_cat_df, mapping_item_df, n)
     import_df = med_total(import_df, agg_vendas_tot_df, mapping_item_df, n)
+    import_df = med_inadimplencia_df(import_df, agg_inadimplencia_df, mapping_item_df, n)
     import_df = med_execao(import_df, agg_vendas_exec_df, mapping_item_df, n)
     
     agg_clientes_grupo_df = pd.read_excel(agg_clientes_file, header = arithmetic_seq_list(2), sheet_name = 'grupo_clientes')

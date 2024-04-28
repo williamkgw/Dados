@@ -144,7 +144,11 @@ def get_cliente_pilar(df):
         return df
     return df.groupby('__pilar', dropna = False).apply(percentage_of_the_row_against_df)
 
-def test_vendas_to_excel(path, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df, agg_exception_df, unique_mapping_df, vendas_missing_df, vendas_df):
+def test_vendas_to_excel(
+        path, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df,
+        agg_exception_df, unique_mapping_df, vendas_missing_df,
+        vendas_df, inadimplente
+        ):
     agg_f = path / 'test_agg.xlsx'
     vendas_missing_f = path / 'missing_vendas_csv.xlsx'
     vendas_csv_f = path / 'vendas_csv.xlsx'
@@ -162,6 +166,7 @@ def test_vendas_to_excel(path, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg
         agg_categoria_df.to_excel(writer, sheet_name = 'categoria')
         agg_tempo_df.to_excel(writer, sheet_name = 'total')
         agg_exception_df.to_excel(writer, sheet_name = 'exception')
+        inadimplente.to_excel(writer, sheet_name = 'inadimplencia')
         unique_mapping_df.to_excel(writer, sheet_name = 'unique_mapping')
 
 def get_ticket(df):
@@ -237,6 +242,17 @@ def agg_configure_exception(vendas_agrupado_grupo):
     agg_exception_df = agg_exception_df.replace([np.inf, -np.inf, np.nan], 0)
 
     return agg_exception_df
+
+def test_inadimplente(vendas_df, end_date):
+    end_date_time_mask = end_date - pd.offsets.MonthBegin()
+    begin_date_time_mask = end_date - pd.offsets.DateOffset(years = 1) - 2*pd.offsets.MonthBegin()
+
+    time_mask = (vendas_df['Data e hora'] > begin_date_time_mask) & (vendas_df['Data e hora'] < end_date_time_mask)
+    baixa_mask = vendas_df['Status da venda'] != 'Baixado'
+    mask = time_mask & baixa_mask
+
+    inadimpl_df = vendas_df[mask].groupby(pd.Grouper(key = 'Data e hora', freq = 'M'))['Bruto'].agg('sum').rolling(window = 12).sum()
+    return inadimpl_df.rename('Inadimplencia do Faturamento Bruto')
 
 def test_vendas(vendas_df, mapping_vendas_df):
     # configuring
@@ -339,7 +355,8 @@ def get_analysis(mapping_f, vendas_f, mapping_clientes_f, clientes_f, path, end_
     
     vendas_df = init_vendas(vendas_f)
     result_vendas = test_vendas(vendas_df, mapping_vendas_df)
-    test_vendas_to_excel(path, *result_vendas)
+    inadimplencia = test_inadimplente(vendas_df, end_date)
+    test_vendas_to_excel(path, *result_vendas, inadimplencia)
 
     mapping_clientes_df = init_mapping_clientes(mapping_clientes_f)
     mapping_clientes_df, *info_mapping_clientes = test_mapping_clientes(mapping_clientes_df, path)
