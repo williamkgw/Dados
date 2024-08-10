@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
+import src.util.dataframe as dataframe
+from src.config import ConfigLoad
 
 def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols, n):
     id_item_col = 'ID do Item'
@@ -164,10 +164,25 @@ def med_clientes_total_ativos(import_df, agg_clientes_total_df, mapping_item_df,
     import_df = med_n_levels(import_df, agg_clientes_total_df, mapping_item_df, mapping_item_cols, n)
     return import_df
 
-def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
-    id_item_col = 'ID do Item'
+def update_import_date(import_df, date):
+    import_df.loc[:, 'Mês'] = date.month
+    import_df.loc[:, 'Ano'] = date.year
+    return import_df
 
-    import_df = pd.read_excel(import_file, index_col = id_item_col)
+def reset_import_medicao(import_df):
+    cols_to_reset = ('Medição' ,'Fx Verde Inf/Previsto' ,'Fx Verde Sup' ,'Fx Vermelha Inf' ,
+                        'Fx Vermelha Sup' ,'Fx Cliente Inf' ,'Fx Cliente Sup')
+    import_df.loc[:, cols_to_reset] = pd.NA
+    return import_df
+
+def load_clean_import_df(import_file, date):
+    import_df = pd.read_excel(import_file, index_col = 'ID do Item')
+    import_df = update_import_date(import_df, date)
+    import_df = reset_import_medicao(import_df)
+    return import_df
+
+def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, date, n):
+    import_df = load_clean_import_df(import_file, date)
 
     arithmetic_seq_list = lambda n : list(range(n))
 
@@ -178,7 +193,7 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
     agg_inadimplencia_df = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'inadimplencia')
     agg_vendas_exec_df  = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'exception')
 
-    mapping_item_df = pd.read_excel(mapping_item_file, index_col = id_item_col)
+    mapping_item_df = pd.read_excel(mapping_item_file, index_col = 'ID do Item')
 
     import_df = med_grupo(import_df, agg_vendas_grupo_df, mapping_item_df, n)
     import_df = med_pilar(import_df, agg_vendas_pil_df, mapping_item_df, n)
@@ -186,11 +201,11 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
     import_df = med_total(import_df, agg_vendas_tot_df, mapping_item_df, n)
     import_df = med_inadimplencia_df(import_df, agg_inadimplencia_df, mapping_item_df, n)
     import_df = med_execao(import_df, agg_vendas_exec_df, mapping_item_df, n)
-    
+
     agg_clientes_grupo_df = pd.read_excel(agg_clientes_file, header = arithmetic_seq_list(2), sheet_name = 'grupo_clientes')
     agg_clientes_total_df = pd.read_excel(agg_clientes_file, header = arithmetic_seq_list(1), sheet_name = 'grupo_total')
     agg_clientes_total_ativos_df = pd.read_excel(agg_clientes_file, header = arithmetic_seq_list(1), sheet_name = 'ativos_clientes')
-    
+
     import_df = med_clientes_grupo(import_df, agg_clientes_grupo_df, mapping_item_df, n)
     import_df = med_clientes_total(import_df, agg_clientes_total_df, mapping_item_df, n)
     import_df = med_clientes_total_ativos(import_df, agg_clientes_total_ativos_df, mapping_item_df, n)
@@ -198,33 +213,26 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, n):
     import_df = import_df.dropna(subset = ('Mês', 'Ano'))
     import_df = import_df.replace([np.inf, -np.inf], 0)
 
-    faixa_columns = ['Fx Verde Inf/Previsto', 'Fx Verde Sup',
-       'Fx Vermelha Inf', 'Fx Vermelha Sup', 'Fx Cliente Inf',
-       'Fx Cliente Sup']
-
-    import_df[faixa_columns] = pd.NA
     return import_df
 
-def get_med_import(import_paths, emps_filter, input_dir, end_date):
-    for import_path in import_paths:
-        emp = import_path.parents[3].name
-        if emp not in emps_filter:
-            continue
+def get_med_import(emps):
+    for emp in emps:
+        config = ConfigLoad('end', emp)
         print(emp)
 
-        carga_dir = utils.get_carga_dir(input_dir, emp, end_date)
-        mapping_item = carga_dir / 'mapping_item.xlsx'
-        import_file = carga_dir / 'import.xlsx'
-        output_dir = carga_dir / 'output'
-        agg_vendas_file = output_dir / 'test_agg.xlsx'
-        agg_clientes_file = output_dir / 'test_agg_clientes.xlsx'
-        out_import_file = output_dir / 'out_import.xlsx'
+        mapping_item = config.input_dir.cargas.carga_company.mapping_export
+        import_file = config.input_dir.cargas.carga_company.export_template
+        agg_vendas_file = config.input_dir.cargas.carga_company.output.sales_mapped
+        agg_clientes_file = config.input_dir.cargas.carga_company.output.clients_mapped
+        out_import_file = config.input_dir.cargas.carga_company.output.export
+        date = config.date
 
-        df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item, -1)
+        df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item, date, -1)
         df.to_excel(out_import_file)
 
 def transform_med_import():
-    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-    import_paths = cargas_dir.rglob('import.xlsx')
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'import_automatico')
-    get_med_import(import_paths, emps, INPUT_DIR, END_DATE)
+    config = ConfigLoad('end',  'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'import_automatico')
+    print(emps)
+    get_med_import(emps)

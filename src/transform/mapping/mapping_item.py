@@ -1,7 +1,7 @@
 import pandas as pd
 
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
+import src.util.dataframe as dataframe
+from src.config import ConfigLoad
 
 def template_mapping_item_add_rows(mapping_df):
 
@@ -53,22 +53,19 @@ def template_mapping_item(import_file, mapping_file):
 
     return mapping_item_df
 
-def get_mapping_item(import_paths, emps_filter, input_dir, end_date):
-    for import_path in import_paths:
-        emp = import_path.parents[3].name
-        if emp not in emps_filter:
-            continue
+def get_mapping_item(emps):
+    for emp in emps:
         print(emp)
-        
-        carga_dir = utils.get_carga_dir(input_dir, emp, end_date)
-        mapping = carga_dir / 'mapping.xlsx'
-        template_mapping_item_f = carga_dir / 'mapping_item.xlsx'
+        config = ConfigLoad('end', emp)
 
-        template_mapping_item_df = template_mapping_item(import_path, mapping)
-        template_mapping_item_df.to_excel(template_mapping_item_f)
+        path_mapping_sales = config.input_dir.cargas.carga_company.mapping_sales
+        path_mapping_export = config.input_dir.cargas.carga_company.mapping_export
+        path_export = config.input_dir.cargas.carga_company.export_template
+
+        template_mapping_item_df = template_mapping_item(path_export, path_mapping_sales)
+        template_mapping_item_df.to_excel(path_mapping_export)
 
 def transform_mapping_item():
-    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-    import_paths = cargas_dir.rglob('import.xlsx')
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
-    get_mapping_item(import_paths, emps, INPUT_DIR, END_DATE)
+    config = ConfigLoad('end', 'null')
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_item')
+    get_mapping_item(emps)

@@ -1,42 +1,47 @@
-import shutil
+import src.util.dataframe as dataframe
+from src.util.others import (
+    copy_dir_to_recursively,
+    delete_dir_recursively,
+    copy_file_to,
+    create_dir
+)
+from src.config import ConfigLoad
+from pathlib import Path
 
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
+def remove_all_inside_results(dir_results):
+    delete_dir_recursively(dir_results)
 
-def remove_all_inside_results(input_dir):
-    dest_dir = input_dir / '.result'
-    shutil.rmtree(dest_dir)
+def copy_dirs_carga_to_results_dirs_carga(dirs_carga, emps):
+    config = ConfigLoad('end', 'null')
 
-def copy_dir_to_export(input_dir, date, emps):
-    dest_dir = input_dir / '.result/dirs'
-    cargas_dir = utils.get_cargas_dir(input_dir, date)
-    dest_dir.mkdir(parents = True, exist_ok = True)
-    dirs = [dir for dir in list(cargas_dir.glob('*')) if dir.name in emps if dir.is_dir()]
+    dirs_company = []
+    for emp in emps:
+        config_company = ConfigLoad('end', emp)
+        dir_company = config_company.input_dir.cargas.dir_name / emp
+        dirs_company.append(dir_company)
 
-    for dir in dirs:
-        shutil.copytree(dir, dest_dir / dir.name, dirs_exist_ok = True)
+    for dir_company in dirs_company:
+        copy_dir_to_recursively(dir_company, dirs_carga / dir_company.name)
 
-def ftp_dir(input_dir, date, emps):
-    dest_dir = input_dir / '.result/imports'
-    cargas_dir = utils.get_cargas_dir(input_dir, date)
-    dest_dir.mkdir(parents = True, exist_ok = True)
-    for file in sorted(dest_dir.glob('*.xlsx')):
-        file.unlink()
 
-    out_paths = cargas_dir.rglob('out_import.xlsx')
-    for out_path in out_paths:
+def copy_exports_to_results_exports_carga(dir_exports: Path, emps):
+    delete_dir_recursively(dir_exports)
+    create_dir(dir_exports)
 
-        emp = out_path.parents[4].name
-        if emp not in emps:
-            continue
+    for emp in emps:
+        config_company = ConfigLoad('end', emp)
         print(emp)
+        out_path = config_company.input_dir.cargas.carga_company.output.export
 
-        dest_path = dest_dir /f'{emp} - {out_path.name}'
-        shutil.copy(out_path, dest_path)
+        dest_path = dir_exports / f'{emp} - {out_path.name}'
+        copy_file_to(out_path, dest_path)
 
 def load_ftp_dir():
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'ftp_dir')
+    config = ConfigLoad('end', 'null')
+    
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'ftp_dir')
     print(emps)
-    remove_all_inside_results(INPUT_DIR)
-    copy_dir_to_export(INPUT_DIR, END_DATE, emps)
-    ftp_dir(INPUT_DIR, END_DATE, emps)
+
+    remove_all_inside_results(config.input_dir.results.dir_name)
+    copy_dirs_carga_to_results_dirs_carga(config.input_dir.results.dirs_carga, emps)
+    copy_exports_to_results_exports_carga(config.input_dir.results.exports_carga, emps)

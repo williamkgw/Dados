@@ -1,9 +1,6 @@
 import argparse
 import logging
 
-from src.config import INPUT_DIR, END_DATE
-import src.utils as utils
-
 import src.extraction.webscraping
 import src.transform.import_icg.import_icg
 import src.transform.import_icg.import_icg_triple_check
@@ -17,9 +14,11 @@ import src.load.mapping.mapping_vendas
 import src.load.import_icg
 import src.load.ftp_dir
 
+from src.config import ConfigLoad
+
 def main():
-    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
+    config = ConfigLoad('end', 'null')
+    logging.basicConfig(filename = config.input_dir.cargas.log, filemode = 'w', encoding = 'utf-8')
 
     parser = argparse.ArgumentParser(
                         description='Um programa para realizar ETL no sistema Quattrus'

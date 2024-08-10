@@ -1,19 +1,33 @@
-import src.utils as utils
-from src.config import BEG_DATE, END_DATE, INPUT_DIR
+import src.util.dataframe as dataframe
+from src.util.others import copy_file_to 
+from src.config import ConfigLoad
 
 def load_mapping_clientes():
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_cliente')
+    config = ConfigLoad('end', 'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_cliente')
     print(emps)
-    new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('new_mapping_cliente.xlsx')
-    utils.get_file_on_dir(new_mapping_paths, emps, INPUT_DIR, END_DATE)
-    new_mapping_copied_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
-    utils.change_filename_on_dir(new_mapping_copied_paths, emps, 'mapping_cliente.xlsx')
+
+    for emp in emps:
+        print(emp)
+        src_config = ConfigLoad('beg', emp)
+        dest_config = ConfigLoad('end', emp)
+
+        copy_file_to(src_config.input_dir.cargas.carga_company.new_mapping_client, dest_config.input_dir.cargas.carga_company.mapping_client)
 
 def load_new_mapping_clientes_all():
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping_cliente')
+    config = ConfigLoad('end', 'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'new_mapping_cliente')
     print(emps)
-    new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('new_mapping_cliente.xlsx')
-    utils.df_all(new_mapping_paths, emps, f'{INPUT_DIR}/new_mapping_cliente_all.xlsx', 3)
+    paths_new_mapping_client = []
+    for emp in emps:
+        config_company = ConfigLoad('end', emp)
+        paths_new_mapping_client.append(config_company.input_dir.cargas.carga_company.new_mapping_client)
+
+    dataframe.df_all(paths_new_mapping_client, config.input_dir.new_mapping_clients_all, 3)
 
 def load_new_mapping_clientes_all_to_company_dir():
-    utils.df_all_to_df(f'{INPUT_DIR}/new_mapping_cliente_all_preenchido.xlsx')
+    config = ConfigLoad('end', 'null')
+
+    dataframe.df_all_to_df(config.input_dir.new_mapping_clients_all_modified)

@@ -1,10 +1,10 @@
-
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
 from pathlib import Path
 import pandas as pd
 import numpy as np
 import logging
+
+import src.util.dataframe as dataframe
+from src.config import ConfigLoad
 
 def init_clientes(clientes_f, end_date):
     # useful_columns = get_filter_columns(clientes_f, 'interface_clientes.xlsx')
@@ -19,33 +19,22 @@ def init_clientes(clientes_f, end_date):
     mask = clientes_df['Inclusão'] <= pd.to_datetime(end_date)
     return clientes_df[mask]
 
-def get_new_mapping_cliente(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
-    year_month_src_s  = utils.get_year_month_str(src_date)
-    year_month_dest_s = utils.get_year_month_str(dest_date)
-
-    search_pattern = f'Carga/{year_month_src_s}/mapping_cliente.xlsx'
-    src_mappings_cliente = list(src_cargas_dir.rglob(search_pattern))
-
-    for src_mapping_cliente in src_mappings_cliente:
-        emp = src_mapping_cliente.parents[3].name
-        if emp not in filter_emps:
-            continue
-
+def get_new_mapping_cliente(emps):
+    for emp in emps:
         print(emp)
-        dest_carga_dir = Path(f'{dest_cargas_dir}/{emp}/Carga/{year_month_dest_s}')
 
-        dest_mapping_clientes_f = dest_carga_dir / 'new_mapping_cliente.xlsx'
-        dest_clientes_f  = dest_carga_dir / 'Clientes.csv'
+        src_config = ConfigLoad('end', emp)
+        dest_config = ConfigLoad('end', emp)
 
         try:
-            dest_clientes_df = init_clientes(dest_clientes_f, dest_date)
+            dest_clientes_df = init_clientes(dest_config.input_dir.cargas.carga_company.clients, dest_config.date)
             dest_clientes_df['Origem'] = dest_clientes_df['Origem'].fillna('_outros')
 
         except Exception as e:
             logging.warning(f'{emp}/exception {e}')
             continue
 
-        src_mapping_clientes_df = pd.read_excel(src_mapping_cliente, index_col = 'Origem', usecols= ('Origem', 'Grupo'))
+        src_mapping_clientes_df = pd.read_excel(src_config.input_dir.cargas.carga_company.mapping_client, index_col = 'Origem', usecols= ('Origem', 'Grupo'))
 
         src_origem_index = src_mapping_clientes_df.index.tolist()
         dest_origem_index = dest_clientes_df['Origem'].unique().tolist()
@@ -57,17 +46,18 @@ def get_new_mapping_cliente(dest_cargas_dir, dest_date, src_cargas_dir, src_date
         if src_origem_index:
             not_found_origem_index = [index for index in dest_origem_index
                                             if index.lower() not in [e.lower() for e in src_origem_index]]
-        
+
         dest_clientes_df['Grupo'] = pd.NA
         not_found_clientes_df = dest_clientes_df[dest_clientes_df['Origem'].isin(not_found_origem_index)].copy()
         dest_mapping_clientes_df = not_found_clientes_df.set_index('Origem')['Grupo']
         dest_mapping_clientes_df = dest_mapping_clientes_df[~dest_mapping_clientes_df.index.duplicated()]
         dest_mapping_clientes_df = pd.concat([src_mapping_clientes_df, dest_mapping_clientes_df])
-        dest_mapping_clientes_df.to_excel(dest_mapping_clientes_f, columns = ['Grupo'])
+        dest_mapping_clientes_df.to_excel(dest_config.input_dir.cargas.carga_company.new_mapping_client, columns = ['Grupo'])
 
 
 def transform_new_mapping_clientes():
-    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping_cliente')
+    config = ConfigLoad('end', 'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'new_mapping_cliente')
     print(emps)
-    get_new_mapping_cliente(cargas_dir, END_DATE, cargas_dir, END_DATE, emps)
+    get_new_mapping_cliente(emps)
