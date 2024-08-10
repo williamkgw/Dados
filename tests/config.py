@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.utils import get_config, get_carga_dir, get_cargas_dir
+from src.util.dataframe import get_config, get_carga_dir, get_cargas_dir
 
 class ConfigLoad():
 

@@ -8,8 +8,8 @@ import datetime
 from pathlib import Path
 import logging
 
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
+import src.util.dataframe as dataframe
+from src.config import ConfigLoad
 
 def list_download_files_in_download_dir(download_dir):
     return list(download_dir.glob('*crdownload'))
@@ -197,39 +197,34 @@ def download(name, password, clinica, out_dir, end_date):
 
     driver.quit()
 
-def get_logins(cargas_dir, acess_pass_f, emps, date):
+def get_logins(emps, credentials):
     import numpy as np
 
-    year_month_str = date.strftime('%Y/%m - %B').title()
+    credentials_df = pd.read_excel(credentials)
+    credentials_df = credentials_df[credentials_df['SITES'] == 'SIMPLESVET']
+    for emp in emps:
+        config_company = ConfigLoad('end', emp)
 
-    acess_pass_f = cargas_dir / acess_pass_f
+        credentials_filtered_df = credentials_df[credentials_df['EMPRESA'] == emp]
+        for _, row in credentials_filtered_df.iterrows():
+            print(emp)
+            date = config_company.date
+            vendas_clientes_dir = config_company.input_dir.cargas.carga_company.dir_name
 
-    acess_pass_df = pd.read_excel(acess_pass_f)
-    acess_pass_df = acess_pass_df[acess_pass_df['SITES'] == 'SIMPLESVET']
-    acess_pass_filtered_df = acess_pass_df[acess_pass_df['EMPRESA'].isin(emps)]
+            nome_acesso = row['NOME DE ACESSO']
+            acesso = row['ACESSO']
+            senha = row['SENHA']
+            extra = row['EXTRA']
 
-    for index, row in acess_pass_filtered_df.iterrows():
-        emp = row['EMPRESA']
-
-        print(emp)
-        carga_dir = cargas_dir / f'{emp}/Carga/{year_month_str}'
-        vendas_clientes_dir = carga_dir
-
-        nome_acesso = row['NOME DE ACESSO']
-        acesso = row['ACESSO']
-        senha = row['SENHA']
-        extra = row['EXTRA']
-
-        if extra is not np.nan:
-            vendas_clientes_dir = carga_dir / f'{extra}'
-        try:
-            download(acesso, senha, nome_acesso, vendas_clientes_dir, date)
-        except Exception as e:
-            logging.warning(f'{emp}/Falha no Download/{e}')
+            if extra is not np.nan:
+                vendas_clientes_dir = vendas_clientes_dir / f'{extra}'
+            try:
+                download(acesso, senha, nome_acesso, vendas_clientes_dir, date)
+            except Exception as e:
+                logging.warning(f'{emp}/Falha no Download/{e}')
 
 def extract_webscraping():
-
-    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'webscraping')
+    config = ConfigLoad('end', 'null')
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'webscraping')
     print(emps)
-    get_logins(cargas_dir, Path('Senhas de acessos.xlsx'), emps, END_DATE)
+    get_logins(emps, config.input_dir.cargas.credentials)

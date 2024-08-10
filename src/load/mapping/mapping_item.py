@@ -1,17 +1,33 @@
-import src.utils as utils
-from src.config import BEG_DATE, END_DATE, INPUT_DIR
+import src.util.dataframe as dataframe
+from src.util.others import copy_file_to 
+from src.config import ConfigLoad
 
 def load_mapping_item():
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
+    config = ConfigLoad('end', 'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_item')
     print(emps)
-    import_item_paths = utils.get_cargas_dir(INPUT_DIR, BEG_DATE).rglob('mapping_item.xlsx')
-    utils.get_file_on_dir(import_item_paths, emps, INPUT_DIR, END_DATE)
+
+    for emp in emps:
+        print(emp)
+        src_config = ConfigLoad('beg', emp)
+        dest_config = ConfigLoad('end', emp)
+
+        copy_file_to(src_config.input_dir.cargas.carga_company.mapping_export, dest_config.input_dir.cargas.carga_company.mapping_export)
 
 def load_mapping_item_all():
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'mapping_item')
+    config = ConfigLoad('end', 'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_item')
     print(emps)
-    new_mapping_paths = utils.get_cargas_dir(INPUT_DIR, END_DATE).rglob('mapping_item.xlsx')
-    utils.df_all(new_mapping_paths, emps, f'{INPUT_DIR}/mapping_item_all.xlsx', 3)
+    paths_mapping_item = []
+    for emp in emps:
+        config_company = ConfigLoad('end', emp)
+        paths_mapping_item.append(config_company.input_dir.cargas.carga_company.mapping_export)
+
+    dataframe.df_all(paths_mapping_item, config.input_dir.mapping_export_all, 3)
 
 def load_mapping_item_all_to_company_dir():
-    utils.df_all_to_df(f'{INPUT_DIR}/mapping_item_all_preenchido.xlsx')
+    config = ConfigLoad('end', 'null')
+
+    dataframe.df_all_to_df(config.input_dir.mapping_export_all_modified)

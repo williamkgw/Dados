@@ -1,13 +1,13 @@
-
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
-
 import logging
 import pandas as pd
 import datetime
 import numpy as np
+from pathlib import Path
 
 import shutil
+
+import src.util.dataframe as dataframe
+from src.config import ConfigLoad
 
 def copy_clientes_e_animais_to_dir(path):
     clientes_e_animais_file = path.parents[0] / 'Animais_e_Clientes.csv'
@@ -346,56 +346,44 @@ def init_mapping_vendas(mapping_f):
                                     )
     return mapping_vendas_df
 
-def get_analysis(mapping_f, vendas_f, mapping_clientes_f, clientes_f, path, end_date):
-    path.mkdir(parents = True, exist_ok = True)
+def get_analysis(config_carga_company, end_date):
+    output_dir = config_carga_company.output.dir_name
 
-    mapping_vendas_df = init_mapping_vendas(mapping_f)
-    mapping_vendas_df, *info_mapping_vendas = test_mapping_vendas(mapping_vendas_df, path)
+    output_dir.mkdir(parents = True, exist_ok = True)
+
+    new_mapping_vendas_df = init_mapping_vendas(config_carga_company.new_mapping_sales)
+    new_mapping_vendas_df, *info_mapping_vendas = test_mapping_vendas(new_mapping_vendas_df, output_dir)
     test_mapping_vendas_to_excel(*info_mapping_vendas)
     
-    vendas_df = init_vendas(vendas_f)
-    result_vendas = test_vendas(vendas_df, mapping_vendas_df)
+    vendas_df = init_vendas(config_carga_company.sales)
+    result_vendas = test_vendas(vendas_df, new_mapping_vendas_df)
     inadimplencia = test_inadimplente(vendas_df, end_date)
-    test_vendas_to_excel(path, *result_vendas, inadimplencia)
+    test_vendas_to_excel(output_dir, *result_vendas, inadimplencia)
 
-    mapping_clientes_df = init_mapping_clientes(mapping_clientes_f)
-    mapping_clientes_df, *info_mapping_clientes = test_mapping_clientes(mapping_clientes_df, path)
+    new_mapping_clientes_df = init_mapping_clientes(config_carga_company.new_mapping_client)
+    new_mapping_clientes_df, *info_mapping_clientes = test_mapping_clientes(new_mapping_clientes_df, output_dir)
     test_mapping_clientes_to_excel(*info_mapping_clientes)
 
-    vendas_df = init_vendas(vendas_f)
-    clientes_df = init_clientes(clientes_f, end_date)
-    result_clientes = test_clientes(vendas_df, clientes_df, mapping_clientes_df)
-    test_clientes_to_excel(path, *result_clientes)
+    vendas_df = init_vendas(config_carga_company.sales)
+    clientes_df = init_clientes(config_carga_company.clients, end_date)
+    result_clientes = test_clientes(vendas_df, clientes_df, new_mapping_clientes_df)
+    test_clientes_to_excel(output_dir, *result_clientes)
 
-    copy_clientes_e_animais_to_dir(path)
+    copy_clientes_e_animais_to_dir(output_dir)
 
-def loop(input_dir, end_date, filter_emps):
-    cargas_dir = utils.get_cargas_dir(input_dir, end_date)
-    year_month_s = utils.get_year_month_str(end_date)
-    search_pattern = f'Carga/{year_month_s}/Vendas.csv'
-    vendas = list(cargas_dir.rglob(search_pattern))
-
-    for venda in vendas:
-        
-        emp = venda.parents[3].name
-        if emp not in filter_emps:
-            continue    
+def loop(emps):
+    for emp in emps:
         print(emp)
 
-        carga_dir = venda.parent
-
-        carga_out_dir = carga_dir / 'output'
-
-        new_mapping = carga_dir / 'new_mapping.xlsx'
-        new_mapping_clientes = carga_dir / 'new_mapping_cliente.xlsx'
-        clientes    = carga_dir / 'Clientes.csv'
-
+        config = ConfigLoad('end', emp)
         try:
-            get_analysis(new_mapping, venda, new_mapping_clientes, clientes, carga_out_dir, end_date)
+            get_analysis(config.input_dir.cargas.carga_company, config.date)
         except Exception as e:
             logging.warning(f'{emp}/Couldn\'t get data_analysis/{e}')
 
 def transform_data_analysis():
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'data_analysis')
+    config = ConfigLoad('end', 'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'data_analysis')
     print(emps)
-    loop(INPUT_DIR, END_DATE, emps)
+    loop(emps)

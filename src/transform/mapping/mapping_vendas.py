@@ -1,10 +1,9 @@
-
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
-from pathlib import Path
 import pandas as pd
 import logging
 import datetime
+
+import src.util.dataframe as dataframe
+from src.config import ConfigLoad
 
 def get_vendas_last_36_months(vendas_df):
     max_date = max(vendas_df['Data e hora'])
@@ -22,33 +21,24 @@ def init_vendas(vendas_f):
     vendas_df = get_vendas_last_36_months(vendas_df)
     return vendas_df
 
-def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter_emps):
-    year_month_src_s  = utils.get_year_month_str(src_date)
-    year_month_dest_s = utils.get_year_month_str(dest_date)
+def get_new_mapping(emps):
 
-    search_pattern = f'Carga/{year_month_src_s}/mapping.xlsx'
-    src_mappings = list(src_cargas_dir.rglob(search_pattern))
-
-    for src_mapping in src_mappings:
-        emp = src_mapping.parents[3].name
-        if emp not in filter_emps:
-            continue
-
+    for emp in emps:
         print(emp)
-        dest_carga_dir = Path(f'{dest_cargas_dir}/{emp}/Carga/{year_month_dest_s}')
 
-        dest_mapping_f = dest_carga_dir / 'new_mapping.xlsx'
-        dest_vendas_f  = dest_carga_dir / 'Vendas.csv'
+        config_src = ConfigLoad('end', emp)
+        config_dest = ConfigLoad('end', emp)
 
         try:
-            dest_vendas_df = init_vendas(dest_vendas_f)
+            dest_vendas_df = init_vendas(config_dest.input_dir.cargas.carga_company.sales)
         except Exception as e:
             logging.warning(f'{emp}/exception {e}')
             continue
+    
         dest_vendas_df['Data e hora'] = pd.to_datetime(dest_vendas_df['Data e hora'], errors = 'coerce')
-        dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= src_date - datetime.timedelta(days = 180)]
+        dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= config_src.date - datetime.timedelta(days = 180)]
         
-        src_mapping_df = pd.read_excel(src_mapping, index_col = 'Produto/serviço', usecols = ('Produto/serviço', 'Categoria', 'Pilar', 'Grupo'))
+        src_mapping_df = pd.read_excel(config_src.input_dir.cargas.carga_company.mapping_sales, index_col = 'Produto/serviço', usecols = ('Produto/serviço', 'Categoria', 'Pilar', 'Grupo'))
         src_mapping_df = src_mapping_df[~src_mapping_df.index.duplicated(keep = 'first')]
 
         dest_prod_serv_index = dest_vendas_df['Produto/serviço'].unique().tolist()
@@ -66,16 +56,13 @@ def get_new_mapping(dest_cargas_dir, dest_date, src_cargas_dir, src_date, filter
         grupo_simplesvet_por_produto_servico = grupo_simplesvet_por_produto_servico[~grupo_simplesvet_por_produto_servico.index.duplicated()]
         
         dest_mapping_df['grupo_simplesvet'] = grupo_simplesvet_por_produto_servico
-        dest_mapping_df.to_excel(dest_mapping_f, columns = ('Categoria', 'Pilar', 'Grupo', 'grupo_simplesvet'))
+        dest_mapping_df.to_excel(config_dest.input_dir.cargas.carga_company.new_mapping_sales, columns = ('Categoria', 'Pilar', 'Grupo', 'grupo_simplesvet'))
 
-def correct_new_mapping(paths_correct_new_mapping):
+def correct_new_mapping(path_mapping_sales, path_new_mapping_sales):
     useful_cols = ['Categoria', 'Pilar', 'Grupo']
 
-    mapping_f = paths_correct_new_mapping['mapping']
-    new_mapping_f = paths_correct_new_mapping['new_mapping']
-
-    mapping_df = pd.read_excel(mapping_f, index_col = 'Produto/serviço').fillna('')
-    new_mapping_df = pd.read_excel(new_mapping_f, index_col = 'Produto/serviço').fillna('')
+    mapping_df = pd.read_excel(path_mapping_sales, index_col = 'Produto/serviço').fillna('')
+    new_mapping_df = pd.read_excel(path_new_mapping_sales, index_col = 'Produto/serviço').fillna('')
     set_values_mapping = set(mapping_df[useful_cols].value_counts().index)
     set_values_new_mapping = set(new_mapping_df[useful_cols].value_counts().index)
     set_excess_values_new_mapping = set_values_new_mapping - set_values_mapping
@@ -83,30 +70,35 @@ def correct_new_mapping(paths_correct_new_mapping):
     new_mapping_df.loc[excess_values_new_mapping_mask, 'Categoria'] = '*Reclassificar*'
     return new_mapping_df
 
-def filter_and_correct_new_mapping_all(input_dir, end_date, emps_filter):
+def filter_and_correct_new_mapping_all(emps, path_new_mapping_sales_corrected_all):
     new_mapping_all_df = pd.DataFrame()
-    for emp in emps_filter:
+    for emp in emps:
         print(emp)
+        config = ConfigLoad('end', emp)
 
-        paths_correct_new_mapping = utils.get_files_path_control(input_dir, end_date, 'correct_mapping', emp)
-        new_mapping_df = correct_new_mapping(paths_correct_new_mapping)
+        path_mapping_sales = config.input_dir.cargas.carga_company.mapping_sales
+        path_new_mapping_sales = config.input_dir.cargas.carga_company.new_mapping_sales
+
+        new_mapping_df = correct_new_mapping(path_mapping_sales, path_new_mapping_sales)
         new_mapping_df['Empresa'] = emp
-        new_mapping_df['path'] = paths_correct_new_mapping['new_mapping']
+        new_mapping_df['path'] = path_new_mapping_sales
 
         new_mapping_all_df = pd.concat([new_mapping_all_df, new_mapping_df])
-    
-    new_mapping_all_df.to_excel(f'{input_dir}/corrected_new_mapping.xlsx')
+
+    new_mapping_all_df.to_excel(path_new_mapping_sales_corrected_all)
 
 def transform_new_mapping():
-    cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
+    config = ConfigLoad('end', 'null')
 
-    logging.basicConfig(filename = cargas_dir / 'log.log', filemode = 'w', encoding = 'utf-8')
+    logging.basicConfig(filename = config.input_dir.cargas.log, filemode = 'w', encoding = 'utf-8')
 
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'new_mapping')
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'new_mapping')
     print(emps)
-    get_new_mapping(cargas_dir, END_DATE, cargas_dir, END_DATE, emps)
+    get_new_mapping(emps)
 
 def transform_correct_new_mapping():
-    emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'correct_mapping')
+    config = ConfigLoad('end', 'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'correct_mapping')
     print(emps)
-    filter_and_correct_new_mapping_all(INPUT_DIR, END_DATE, emps)
+    filter_and_correct_new_mapping_all(emps, config.input_dir.new_mapping_sales_corrected_all)

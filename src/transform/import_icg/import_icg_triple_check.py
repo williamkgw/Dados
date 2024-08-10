@@ -1,23 +1,17 @@
 import pandas as pd
 
-import src.utils as utils
-from src.config import END_DATE, INPUT_DIR
+import src.util.dataframe as dataframe
+from src.config import ConfigLoad
 
-def triple_check(out_imports, emps_filter, input_dir):
-    icg_import_f = input_dir / 'icg_export.xlsx'
-    icg_import_cols = ('ID do Item', 'Mês', 'Ano',
-                       'Medição', 'Item', 'Totalizado'
-                        )
-    icg_import_df = pd.read_excel(icg_import_f, index_col = 'ID do Item', usecols = icg_import_cols)
+def triple_check(emps, export_all_companies, export_all_companies_compared):
+    icg_import_cols = ('ID do Item', 'Mês', 'Ano', 'Medição', 'Item', 'Totalizado')
+    icg_import_df = pd.read_excel(export_all_companies, index_col = 'ID do Item', usecols = icg_import_cols)
 
     df_all = pd.DataFrame()
-    for out_import in out_imports:
-        emp = out_import.parents[4].name
-        if emp not in emps_filter:
-            continue
+    for emp in emps:
+        config = ConfigLoad('end', emp)
         print(emp)
-
-        out_import_df = pd.read_excel(out_import, index_col = 'ID do Item', usecols = icg_import_cols)
+        out_import_df = pd.read_excel(config.input_dir.cargas.carga_company.output.export, index_col = 'ID do Item', usecols = icg_import_cols)
 
         set_id_out_import = set(out_import_df.index)
         set_id_icg_import = set(icg_import_df.index)
@@ -31,12 +25,11 @@ def triple_check(out_imports, emps_filter, input_dir):
 
         df_all = pd.concat([df_all, df])
 
-    out_import_comp = input_dir / 'comp_icg_out_import.xlsx'
-    df_all.to_excel(out_import_comp)
+    df_all.to_excel(export_all_companies_compared)
 
 def transform_triple_check():
-        cargas_dir = utils.get_cargas_dir(INPUT_DIR, END_DATE)
-        out_imports = cargas_dir.rglob('out_import.xlsx')
-        emps = utils.is_not_done_carga(INPUT_DIR, END_DATE, 'triple_check')
-        print(emps)
-        triple_check(out_imports, emps, INPUT_DIR)
+    config = ConfigLoad('end',  'null')
+
+    emps = dataframe.is_not_done_carga(config.input_dir, config.date, 'triple_check')
+    print(emps)
+    triple_check(emps)
