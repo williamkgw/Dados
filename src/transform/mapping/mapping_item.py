@@ -28,7 +28,7 @@ def template_mapping_item_add_rows(mapping_df):
     df = pd.concat([df_cat, df_pil, df_grup, df_op_cols, df_op_exec_cols]).reset_index(drop = True)
     return df
 
-def template_mapping_item(import_file, mapping_file):
+def template_mapping_item(import_file, mapping_file, mapping_item_f):
     template_import_cols    =   ('ID do Item', 'Mês', 'Ano', 'Item')
     template_filtering_cols =   ('Totalizado', )
     import_df_cols = template_import_cols + template_filtering_cols
@@ -46,10 +46,8 @@ def template_mapping_item(import_file, mapping_file):
     mapping_item_df['Multiplicador'] = 1
     mapping_item_df[add_rows_df.columns] = mapping_item_df[add_rows_df.columns].fillna('x')
 
-    output_path = mapping_file.parent / 'mapping_item.xlsx'
-
     mapping_item_df.index.name = index_import
-    mapping_item_df.to_excel(output_path, index = index_import)
+    mapping_item_df.to_excel(mapping_item_f, index = index_import)
 
     return mapping_item_df
 
@@ -61,8 +59,9 @@ def get_mapping_item(emps):
         path_mapping_sales = config.input_dir.cargas.carga_company.mapping_sales
         path_mapping_export = config.input_dir.cargas.carga_company.mapping_export
         path_export = config.input_dir.cargas.carga_company.export_template
+        path_mapping_export = config.input_dir.cargas.carga_company.mapping_export
 
-        template_mapping_item_df = template_mapping_item(path_export, path_mapping_sales)
+        template_mapping_item_df = template_mapping_item(path_export, path_mapping_sales, path_mapping_export)
         template_mapping_item_df.to_excel(path_mapping_export)
 
 def transform_mapping_item():

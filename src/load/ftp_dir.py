@@ -6,7 +6,6 @@ from src.util.others import (
     create_dir
 )
 from src.config import ConfigLoad
-from pathlib import Path
 
 def remove_all_inside_results(dir_results):
     delete_dir_recursively(dir_results)
@@ -24,7 +23,7 @@ def copy_dirs_carga_to_results_dirs_carga(dirs_carga, emps):
         copy_dir_to_recursively(dir_company, dirs_carga / dir_company.name)
 
 
-def copy_exports_to_results_exports_carga(dir_exports: Path, emps):
+def copy_exports_to_results_exports_carga(dir_exports, emps):
     delete_dir_recursively(dir_exports)
     create_dir(dir_exports)
 
