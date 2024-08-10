@@ -50,6 +50,7 @@ class ConfigOutputLoad:
         self.mapping_clients_mapped = self.dir_name / data['mapping-clients-mapped']
         self.missing_sales = self.dir_name / data['missing-sales']
         self.sales = self.dir_name / data['sales']
+        self.clients = self.dir_name / data['clients']
 
 
 class ConfigAnalyticSalesLoad:
@@ -70,16 +71,16 @@ class ConfigAnalyticAnimalsAndClients:
 
     def __init__(self, data, base_dir):
         self.dir_name = base_dir / data['dir-name']
-        self.animal_and_clients = self.dir_name / data['animals-and-clients']
+        self.animals_and_clients = self.dir_name / data['animals-and-clients']
 
 
 class ConfigAnalyticLoad:
 
     def __init__(self, data, base_dir, emp, year_month_str):
-        self.dir_name = base_dir / emp / year_month_str / data['dir-name']
+        self.dir_name = base_dir / year_month_str / emp / data['dir-name']
         self.sales_analytic = ConfigAnalyticSalesLoad(data['sales-analytic'], self.dir_name)
-        self.clientes_analytic = ConfigAnalyticClientsLoad(data['clients-analytic'], self.dir_name)
-        self.animal_and_clients_analytic = ConfigAnalyticAnimalsAndClients(data['animals-and-clients-analytic'], self.dir_name)
+        self.clients_analytic = ConfigAnalyticClientsLoad(data['clients-analytic'], self.dir_name)
+        self.animals_and_clients_analytic = ConfigAnalyticAnimalsAndClients(data['animals-and-clients-analytic'], self.dir_name)
 
 
 class ConfigResultsLoad:

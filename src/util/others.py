@@ -1,7 +1,5 @@
 import shutil
 
-from pathlib import Path
-
 def copy_file_to(path_src, path_dest):
     shutil.copy2(path_src, path_dest)
 

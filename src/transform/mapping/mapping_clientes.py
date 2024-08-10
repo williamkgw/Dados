@@ -1,4 +1,3 @@
-from pathlib import Path
 import pandas as pd
 import numpy as np
 import logging
@@ -7,12 +6,10 @@ import src.util.dataframe as dataframe
 from src.config import ConfigLoad
 
 def init_clientes(clientes_f, end_date):
-    # useful_columns = get_filter_columns(clientes_f, 'interface_clientes.xlsx')
-    clientes_df = pd.read_csv(clientes_f, dayfirst = True, parse_dates = ['Inclusão'],#[useful_columns['Inclusão']],
-                        thousands = '.', decimal = ',', encoding = 'latin1',
-                        sep = ';'#, usecols = useful_columns.values()
-                        )
-    # clientes_df = clientes_df.rename(columns = invert_key_value_dict(useful_columns))
+    clientes_df = pd.read_csv(
+        clientes_f, dayfirst = True, parse_dates = ['Inclusão'], thousands = '.', decimal = ',', encoding = 'latin1',
+        sep = ';'
+    )
     clientes_df['Origem'] = clientes_df['Origem'].fillna('_outros')
     clientes_df['Inclusão'] = pd.to_datetime(clientes_df['Inclusão'], dayfirst = True, errors = 'coerce')
     clientes_df['Inclusão'] = clientes_df['Inclusão'].fillna('01/01/1900')

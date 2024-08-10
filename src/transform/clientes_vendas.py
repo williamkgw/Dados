@@ -2,26 +2,16 @@ import logging
 import pandas as pd
 import datetime
 import numpy as np
-from pathlib import Path
 
-import shutil
-
+from src.util.others import copy_file_to
 import src.util.dataframe as dataframe
 from src.config import ConfigLoad
 
-def copy_clientes_e_animais_to_dir(path):
-    clientes_e_animais_file = path.parents[0] / 'Animais_e_Clientes.csv'
-    clientes_e_animais_dir = path.parents[3] / 'Animais_e_Clientes'
-    clientes_e_animais_dir.mkdir(exist_ok = True)
-    shutil.copy2(clientes_e_animais_file, clientes_e_animais_dir)
+def test_clientes_to_excel(config_company_output, agg_clientes, agg_clientes_total, agg_v_clientes, clientes_df):
+    agg_file = config_company_output.clients_mapped
+    clients_file = config_company_output.clients
 
-def test_clientes_to_excel(path, agg_clientes, agg_clientes_total, agg_v_clientes, clientes_df):
-    agg_file = path / 'test_agg_clientes.xlsx'
-
-    analitico_dir = path.parents[3] / 'Clientes'
-    analitico_dir.mkdir(exist_ok = True)
-    analitico_clientes_csv_f = analitico_dir / 'clientes_csv.xlsx'
-    clientes_df.to_excel(analitico_clientes_csv_f)
+    clientes_df.to_excel(clients_file)
     with pd.ExcelWriter(agg_file) as writer:
         agg_clientes.to_excel(writer, sheet_name = 'grupo_clientes')
         agg_clientes_total.to_excel(writer, sheet_name = 'grupo_total')
@@ -107,13 +97,14 @@ def init_clientes(clientes_f, end_date):
     mask = clientes_df['Inclusão'] <= pd.to_datetime(end_date)
     return clientes_df[mask]
 
-def test_mapping_clientes_to_excel(mapping_vendas_duplicated_df, missing_mapping_vendas_df, testing_vendas_out_f):
-    with pd.ExcelWriter(testing_vendas_out_f) as writer:
+def test_mapping_clientes_to_excel(config_company_output, mapping_vendas_duplicated_df, missing_mapping_vendas_df):
+    testing_mapping_clientes_f = config_company_output.mapping_clients_mapped
+    with pd.ExcelWriter(testing_mapping_clientes_f) as writer:
         mapping_vendas_duplicated_df.to_excel(writer, sheet_name = 'duplicated_index')
         missing_mapping_vendas_df.to_excel(writer, sheet_name = 'missing_mapping')
 
-def test_mapping_clientes(mapping_clientes_df, path):
-    testing_mapping_clientes_f = path / 'testing_mapping_clientes.xlsx'
+def test_mapping_clientes(config_company_output, mapping_clientes_df):
+    testing_mapping_clientes_f = config_company_output.mapping_clients_mapped
 
     # removing empty rows
     missing_mapping_clientes_df = mapping_clientes_df[mapping_clientes_df.isna().all(axis=1)]
@@ -126,7 +117,7 @@ def test_mapping_clientes(mapping_clientes_df, path):
     mapping_clientes_duplicated_df = mapping_clientes_df[mapping_clientes_df.index.duplicated(keep = False)]
     mapping_clientes_df = mapping_clientes_df[~mapping_clientes_df.index.duplicated(keep='last')]
 
-    return [mapping_clientes_df, mapping_clientes_duplicated_df, missing_mapping_clientes_df, testing_mapping_clientes_f]
+    return [mapping_clientes_df, mapping_clientes_duplicated_df, missing_mapping_clientes_df]
 
 def init_mapping_clientes(mapping_clientes_f):
     mapping_vendas_df = pd.read_excel(mapping_clientes_f, index_col = 'Origem', 
@@ -145,21 +136,16 @@ def get_cliente_pilar(df):
     return df.groupby('__pilar', dropna = False).apply(percentage_of_the_row_against_df)
 
 def test_vendas_to_excel(
-        path, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df,
+        config_carga_output, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df,
         agg_exception_df, unique_mapping_df, vendas_missing_df,
         vendas_df, inadimplente
         ):
-    agg_f = path / 'test_agg.xlsx'
-    vendas_missing_f = path / 'missing_vendas_csv.xlsx'
-    vendas_csv_f = path / 'vendas_csv.xlsx'
+    agg_f = config_carga_output.sales_mapped
+    vendas_missing_f = config_carga_output.missing_sales
+    vendas_csv_f = config_carga_output.sales
 
     vendas_missing_df.to_excel(vendas_missing_f)
     vendas_df.to_excel(vendas_csv_f)
-
-    analitico_dir = path.parents[3] / 'Analitico'
-    analitico_dir.mkdir(exist_ok = True)
-    analitico_vendas_csv_f = analitico_dir / 'vendas_csv.xlsx'
-    vendas_df.to_excel(analitico_vendas_csv_f)
     with pd.ExcelWriter(agg_f) as writer:
         agg_grupo_df.to_excel(writer, sheet_name = 'grupo')
         agg_pilar_df.to_excel(writer, sheet_name = 'pilar')
@@ -324,9 +310,7 @@ def test_mapping_vendas_to_excel(mapping_vendas_duplicated_df, missing_mapping_v
         mapping_vendas_duplicated_df.to_excel(writer, sheet_name = 'duplicated_index')
         missing_mapping_vendas_df.to_excel(writer, sheet_name = 'missing_mapping')
 
-def test_mapping_vendas(mapping_vendas_df, path):
-    testing_vendas_out_f = path / 'testing_mapping_vendas.xlsx'
-
+def test_mapping_vendas(mapping_vendas_df, path_mapping_sales_mapped):
     # removing empty rows
     missing_mapping_vendas_df = mapping_vendas_df[mapping_vendas_df.isna().all(axis=1)]
     mapping_vendas_df = mapping_vendas_df.dropna(how = 'all', axis = 0)
@@ -338,7 +322,7 @@ def test_mapping_vendas(mapping_vendas_df, path):
     mapping_vendas_duplicated_df = mapping_vendas_df[mapping_vendas_df.index.duplicated(keep = False)]
     mapping_vendas_df = mapping_vendas_df[~mapping_vendas_df.index.duplicated(keep='last')]
 
-    return [mapping_vendas_df, mapping_vendas_duplicated_df, missing_mapping_vendas_df, testing_vendas_out_f]
+    return [mapping_vendas_df, mapping_vendas_duplicated_df, missing_mapping_vendas_df, path_mapping_sales_mapped]
 
 def init_mapping_vendas(mapping_f):
     mapping_vendas_df = pd.read_excel(mapping_f, index_col = 'Produto/serviço', 
@@ -348,28 +332,30 @@ def init_mapping_vendas(mapping_f):
 
 def get_analysis(config_carga_company, end_date):
     output_dir = config_carga_company.output.dir_name
-
     output_dir.mkdir(parents = True, exist_ok = True)
 
     new_mapping_vendas_df = init_mapping_vendas(config_carga_company.new_mapping_sales)
-    new_mapping_vendas_df, *info_mapping_vendas = test_mapping_vendas(new_mapping_vendas_df, output_dir)
+    new_mapping_vendas_df, *info_mapping_vendas = test_mapping_vendas(new_mapping_vendas_df, config_carga_company.output.mapping_sales_mapped)
     test_mapping_vendas_to_excel(*info_mapping_vendas)
     
     vendas_df = init_vendas(config_carga_company.sales)
     result_vendas = test_vendas(vendas_df, new_mapping_vendas_df)
     inadimplencia = test_inadimplente(vendas_df, end_date)
-    test_vendas_to_excel(output_dir, *result_vendas, inadimplencia)
+    test_vendas_to_excel(config_carga_company.output, *result_vendas, inadimplencia)
 
     new_mapping_clientes_df = init_mapping_clientes(config_carga_company.new_mapping_client)
-    new_mapping_clientes_df, *info_mapping_clientes = test_mapping_clientes(new_mapping_clientes_df, output_dir)
-    test_mapping_clientes_to_excel(*info_mapping_clientes)
+    new_mapping_clientes_df, *info_mapping_clientes = test_mapping_clientes(config_carga_company.output, new_mapping_clientes_df)
+    test_mapping_clientes_to_excel(config_carga_company.output, *info_mapping_clientes)
 
     vendas_df = init_vendas(config_carga_company.sales)
     clientes_df = init_clientes(config_carga_company.clients, end_date)
     result_clientes = test_clientes(vendas_df, clientes_df, new_mapping_clientes_df)
-    test_clientes_to_excel(output_dir, *result_clientes)
+    test_clientes_to_excel(config_carga_company.output, *result_clientes)
 
-    copy_clientes_e_animais_to_dir(output_dir)
+def copy_carga_files_to_analytic(config_carga, config_analytic):
+    copy_file_to(config_carga.animals_and_clients, config_analytic.animals_and_clients_analytic.animals_and_clients)
+    copy_file_to(config_carga.output.sales, config_analytic.sales_analytic.sales)
+    copy_file_to(config_carga.output.clients, config_analytic.clients_analytic.clients)
 
 def loop(emps):
     for emp in emps:
@@ -378,6 +364,7 @@ def loop(emps):
         config = ConfigLoad('end', emp)
         try:
             get_analysis(config.input_dir.cargas.carga_company, config.date)
+            copy_carga_files_to_analytic(config.input_dir.cargas.carga_company, config.input_dir.analytic)
         except Exception as e:
             logging.warning(f'{emp}/Couldn\'t get data_analysis/{e}')
 
