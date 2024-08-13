@@ -1,5 +1,5 @@
 import src.util.dataframe as dataframe
-from src.util.others import copy_file_to 
+from src.util.others import copy_file_to
 from src.config import ConfigLoad
 
 def load_mapping_clientes():

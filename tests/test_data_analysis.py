@@ -1,8 +1,15 @@
 import unittest
 import pandas as pd
 
-from src.data_analysis import init_clientes, init_vendas, init_mapping_clientes, init_mapping_vendas
-from src.data_analysis import test_vendas, test_clientes, test_mapping_vendas, test_mapping_clientes
+from src.extraction.sales import init_vendas
+from src.extraction.clients import init_clientes
+from src.extraction.mapping.mapping_clients import init_mapping_clientes
+from src.extraction.mapping.mapping_sales import init_mapping_vendas
+
+from src.transform.mapping.mapping_clients import test_mapping_clientes
+from src.transform.mapping.mapping_sales import test_mapping_vendas
+from src.transform.clients import test_clientes
+from src.transform.sales import test_vendas
 
 from tests.config import ConfigLoad
 

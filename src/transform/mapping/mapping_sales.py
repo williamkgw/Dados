@@ -5,21 +5,26 @@ import datetime
 import src.util.dataframe as dataframe
 from src.config import ConfigLoad
 
-def get_vendas_last_36_months(vendas_df):
-    max_date = max(vendas_df['Data e hora'])
-    min_date = datetime.datetime(year = max_date.year - 3, month = max_date.month, day = 1)
-    mask = vendas_df['Data e hora'] > min_date
-    return vendas_df[mask]
+from src.extraction.sales import init_vendas
 
-def init_vendas(vendas_f):
-    vendas_df =  pd.read_csv(vendas_f, thousands = '.', decimal = ',', sep = ';',
-                        encoding = 'latin1', parse_dates = ['Data e hora'],
-                          dayfirst=True,
-                        )
-    vendas_df['Código'] = vendas_df['Código'].fillna(0)
-    vendas_df = vendas_df.astype({'Produto/serviço': str, 'Quantidade': float, 'Bruto': float})
-    vendas_df = get_vendas_last_36_months(vendas_df)
-    return vendas_df
+def test_mapping_vendas_to_excel(mapping_vendas_duplicated_df, missing_mapping_vendas_df, testing_vendas_out_f):
+    with pd.ExcelWriter(testing_vendas_out_f) as writer:
+        mapping_vendas_duplicated_df.to_excel(writer, sheet_name = 'duplicated_index')
+        missing_mapping_vendas_df.to_excel(writer, sheet_name = 'missing_mapping')
+
+def test_mapping_vendas(mapping_vendas_df, path_mapping_sales_mapped):
+    # removing empty rows
+    missing_mapping_vendas_df = mapping_vendas_df[mapping_vendas_df.isna().all(axis=1)]
+    mapping_vendas_df = mapping_vendas_df.dropna(how = 'all', axis = 0)
+
+    # configuring the dataframes to catch case sensitive
+    mapping_vendas_df.index = mapping_vendas_df.index.str.lower()
+    
+    # removing duplicated index
+    mapping_vendas_duplicated_df = mapping_vendas_df[mapping_vendas_df.index.duplicated(keep = False)]
+    mapping_vendas_df = mapping_vendas_df[~mapping_vendas_df.index.duplicated(keep='last')]
+
+    return [mapping_vendas_df, mapping_vendas_duplicated_df, missing_mapping_vendas_df, path_mapping_sales_mapped]
 
 def get_new_mapping(emps):
 

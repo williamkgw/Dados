@@ -3,18 +3,28 @@ import numpy as np
 import logging
 
 import src.util.dataframe as dataframe
+from src.extraction.clients import init_clientes
 from src.config import ConfigLoad
 
-def init_clientes(clientes_f, end_date):
-    clientes_df = pd.read_csv(
-        clientes_f, dayfirst = True, parse_dates = ['Inclusão'], thousands = '.', decimal = ',', encoding = 'latin1',
-        sep = ';'
-    )
-    clientes_df['Origem'] = clientes_df['Origem'].fillna('_outros')
-    clientes_df['Inclusão'] = pd.to_datetime(clientes_df['Inclusão'], dayfirst = True, errors = 'coerce')
-    clientes_df['Inclusão'] = clientes_df['Inclusão'].fillna('01/01/1900')
-    mask = clientes_df['Inclusão'] <= pd.to_datetime(end_date)
-    return clientes_df[mask]
+def test_mapping_clientes_to_excel(config_company_output, mapping_vendas_duplicated_df, missing_mapping_vendas_df):
+    testing_mapping_clientes_f = config_company_output.mapping_clients_mapped
+    with pd.ExcelWriter(testing_mapping_clientes_f) as writer:
+        mapping_vendas_duplicated_df.to_excel(writer, sheet_name = 'duplicated_index')
+        missing_mapping_vendas_df.to_excel(writer, sheet_name = 'missing_mapping')
+
+def test_mapping_clientes(mapping_clientes_df):
+    # removing empty rows
+    missing_mapping_clientes_df = mapping_clientes_df[mapping_clientes_df.isna().all(axis=1)]
+    mapping_clientes_df = mapping_clientes_df.dropna(how = 'all', axis = 0)
+
+    # configuring the dataframes to catch case sensitive
+    mapping_clientes_df.index = mapping_clientes_df.index.str.lower()
+    
+    # removing duplicated index
+    mapping_clientes_duplicated_df = mapping_clientes_df[mapping_clientes_df.index.duplicated(keep = False)]
+    mapping_clientes_df = mapping_clientes_df[~mapping_clientes_df.index.duplicated(keep='last')]
+
+    return [mapping_clientes_df, mapping_clientes_duplicated_df, missing_mapping_clientes_df]
 
 def get_new_mapping_cliente(emps):
     for emp in emps:
