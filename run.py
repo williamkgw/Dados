@@ -4,13 +4,13 @@ import logging
 import src.extraction.webscraping
 import src.transform.import_icg.import_icg
 import src.transform.import_icg.import_icg_triple_check
-import src.transform.mapping.mapping_clientes
+import src.transform.mapping.mapping_clients
 import src.transform.mapping.mapping_item
-import src.transform.mapping.mapping_vendas
-import src.transform.clientes_vendas
-import src.load.mapping.mapping_clientes
+import src.transform.mapping.mapping_sales
+import src.transform.data_analysis
+import src.load.mapping.mapping_clients
 import src.load.mapping.mapping_item
-import src.load.mapping.mapping_vendas
+import src.load.mapping.mapping_sales
 import src.load.import_icg
 import src.load.ftp_dir
 
@@ -44,26 +44,26 @@ def main():
             src.transform.mapping.mapping_item.transform_mapping_item()
         
         elif args.mode == 'new_mapping':
-            src.transform.mapping.mapping_vendas.transform_new_mapping()
+            src.transform.mapping.mapping_sales.transform_new_mapping()
 
         elif args.mode == 'new_mapping_cliente':
-            src.transform.mapping.mapping_clientes.transform_new_mapping_clientes()
+            src.transform.mapping.mapping_clients.transform_new_mapping_clientes()
 
         elif args.mode == 'correct_new_mapping':
-            src.transform.mapping.mapping_vendas.transform_correct_new_mapping()
+            src.transform.mapping.mapping_sales.transform_correct_new_mapping()
 
         elif args.mode == 'data_analysis':
-            src.transform.clientes_vendas.transform_data_analysis()
+            src.transform.data_analysis.transform_data_analysis()
 
     elif args.file == 'load':
         if args.mode == 'mapping_clientes':
-            src.load.mapping.mapping_clientes.load_mapping_clientes()
+            src.load.mapping.mapping_clients.load_mapping_clientes()
 
         elif args.mode == 'mapping_item':
             src.load.mapping.mapping_item.load_mapping_item()
 
         elif args.mode == 'mapping_vendas':
-            src.load.mapping.mapping_vendas.load_mapping_vendas()
+            src.load.mapping.mapping_sales.load_mapping_vendas()
 
         elif args.mode == 'import_icg':
             src.load.import_icg.load_import_icg()
@@ -72,25 +72,25 @@ def main():
             src.load.ftp_dir.load_ftp_dir()
 
         elif args.mode == 'new_mapping_clientes_all':
-            src.load.mapping.mapping_clientes.load_new_mapping_clientes_all()
+            src.load.mapping.mapping_clients.load_new_mapping_clientes_all()
 
         elif args.mode == 'mapping_item_all':
             src.load.mapping.mapping_item.load_mapping_item_all()
 
         elif args.mode == 'new_mapping_vendas_all':
-            src.load.mapping.mapping_vendas.load_new_mapping_vendas_all()
+            src.load.mapping.mapping_sales.load_new_mapping_vendas_all()
 
         elif args.mode == 'new_mapping_clientes_all_to_company_dir':
-            src.load.mapping.mapping_clientes.load_new_mapping_clientes_all_to_company_dir()
+            src.load.mapping.mapping_clients.load_new_mapping_clientes_all_to_company_dir()
 
         elif args.mode == 'mapping_item_all_to_company_dir':
             src.load.mapping.mapping_item.load_mapping_item_all_to_company_dir()
 
         elif args.mode == 'new_mapping_vendas_all_to_company_dir':
-            src.load.mapping.mapping_vendas.load_new_mapping_vendas_all_to_company_dir()
+            src.load.mapping.mapping_sales.load_new_mapping_vendas_all_to_company_dir()
 
         elif args.mode == 'correct_new_mapping_vendas_all_to_company_dir':
-            src.load.mapping.mapping_vendas.load_correct_new_mapping_vendas_to_company_dir()
+            src.load.mapping.mapping_sales.load_correct_new_mapping_vendas_to_company_dir()
 
 if __name__ == '__main__':
     main()
