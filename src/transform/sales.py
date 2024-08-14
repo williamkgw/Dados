@@ -2,9 +2,10 @@ import numpy as np
 import pandas as pd
 
 from src.extraction.mapping.mapping_sales import init_mapping_vendas
+from src.transform.mapping.mapping_sales import test_mapping_vendas
+from src.load.mapping.mapping_sales import test_mapping_vendas_to_excel
 from src.extraction.sales import init_vendas
-
-from src.transform.mapping.mapping_sales import test_mapping_vendas, test_mapping_vendas_to_excel
+from src.load.sales import test_vendas_to_excel
 
 def get_clientes_ativos(df):
     df['__clientes_ativos'] = 1/len(df)
@@ -15,26 +16,6 @@ def get_cliente_pilar(df):
         df['__clientes_ativo_por_pilar'] = 1/len(df)
         return df
     return df.groupby('__pilar', dropna = False).apply(percentage_of_the_row_against_df)
-
-def test_vendas_to_excel(
-        config_carga_output, agg_grupo_df, agg_pilar_df, agg_categoria_df, agg_tempo_df,
-        agg_exception_df, unique_mapping_df, vendas_missing_df,
-        vendas_df, inadimplente
-        ):
-    agg_f = config_carga_output.sales_mapped
-    vendas_missing_f = config_carga_output.missing_sales
-    vendas_csv_f = config_carga_output.sales
-
-    vendas_missing_df.to_excel(vendas_missing_f)
-    vendas_df.to_excel(vendas_csv_f)
-    with pd.ExcelWriter(agg_f) as writer:
-        agg_grupo_df.to_excel(writer, sheet_name = 'grupo')
-        agg_pilar_df.to_excel(writer, sheet_name = 'pilar')
-        agg_categoria_df.to_excel(writer, sheet_name = 'categoria')
-        agg_tempo_df.to_excel(writer, sheet_name = 'total')
-        agg_exception_df.to_excel(writer, sheet_name = 'exception')
-        inadimplente.to_excel(writer, sheet_name = 'inadimplencia')
-        unique_mapping_df.to_excel(writer, sheet_name = 'unique_mapping')
 
 def get_ticket(df):
     df['__ticket'] = 1/df['Venda'].count()

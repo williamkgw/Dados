@@ -1,7 +1,8 @@
 import pandas as pd
 
-import src.util.dataframe as dataframe
-from src.config import ConfigLoad
+from src.extraction.mapping.mapping_sales import init_mapping_vendas
+from src.extraction.export_template import init_export_template
+from src.load.mapping.mapping_export import load_mapping_item_df
 
 def template_mapping_item_add_rows(mapping_df):
 
@@ -29,16 +30,12 @@ def template_mapping_item_add_rows(mapping_df):
     return df
 
 def template_mapping_item(import_file, mapping_file, mapping_item_f):
-    template_import_cols    =   ('ID do Item', 'Mês', 'Ano', 'Item')
     template_filtering_cols =   ('Totalizado', )
-    import_df_cols = template_import_cols + template_filtering_cols
 
-    index_import = 'ID do Item'
-
-    import_df = pd.read_excel(import_file, usecols = import_df_cols, index_col = index_import)
+    import_df = init_export_template(import_file)
     filtered_import_df = import_df.drop(list(template_filtering_cols), axis = 1)
-        
-    mapping_df = pd.read_excel(mapping_file, index_col = 'Produto/serviço')
+
+    mapping_df = init_mapping_vendas(mapping_file)
     add_rows_df = template_mapping_item_add_rows(mapping_df)
 
     mapping_item_df = pd.concat([filtered_import_df, add_rows_df])
@@ -46,25 +43,7 @@ def template_mapping_item(import_file, mapping_file, mapping_item_f):
     mapping_item_df['Multiplicador'] = 1
     mapping_item_df[add_rows_df.columns] = mapping_item_df[add_rows_df.columns].fillna('x')
 
-    mapping_item_df.index.name = index_import
-    mapping_item_df.to_excel(mapping_item_f, index = index_import)
+    mapping_item_df.index.name = 'ID do Item'
+    load_mapping_item_df(mapping_item_df, mapping_item_f)
 
     return mapping_item_df
-
-def get_mapping_item(emps):
-    for emp in emps:
-        print(emp)
-        config = ConfigLoad('end', emp)
-
-        path_mapping_sales = config.input_dir.cargas.carga_company.mapping_sales
-        path_mapping_export = config.input_dir.cargas.carga_company.mapping_export
-        path_export = config.input_dir.cargas.carga_company.export_template
-        path_mapping_export = config.input_dir.cargas.carga_company.mapping_export
-
-        template_mapping_item_df = template_mapping_item(path_export, path_mapping_sales, path_mapping_export)
-        template_mapping_item_df.to_excel(path_mapping_export)
-
-def transform_mapping_item():
-    config = ConfigLoad('end', 'null')
-    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_item')
-    get_mapping_item(emps)

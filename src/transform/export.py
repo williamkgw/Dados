@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-import src.util.dataframe as dataframe
-from src.config import ConfigLoad
+from src.extraction.mapping.mapping_export import init_mapping_export_template
+from src.extraction.export_template import init_export_template
 
 def med_n_levels(import_df, agg_vendas_df, mapping_item_df, mapping_item_cols, n):
     id_item_col = 'ID do Item'
@@ -176,7 +176,7 @@ def reset_import_medicao(import_df):
     return import_df
 
 def load_clean_import_df(import_file, date):
-    import_df = pd.read_excel(import_file, index_col = 'ID do Item')
+    import_df = init_export_template(import_file)
     import_df = update_import_date(import_df, date)
     import_df = reset_import_medicao(import_df)
     return import_df
@@ -193,7 +193,7 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, date
     agg_inadimplencia_df = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'inadimplencia')
     agg_vendas_exec_df  = pd.read_excel(agg_vendas_file, header = arithmetic_seq_list(1), sheet_name = 'exception')
 
-    mapping_item_df = pd.read_excel(mapping_item_file, index_col = 'ID do Item')
+    mapping_item_df = init_mapping_export_template(mapping_item_file)
 
     import_df = med_grupo(import_df, agg_vendas_grupo_df, mapping_item_df, n)
     import_df = med_pilar(import_df, agg_vendas_pil_df, mapping_item_df, n)
@@ -214,25 +214,3 @@ def med(import_file, agg_vendas_file, agg_clientes_file, mapping_item_file, date
     import_df = import_df.replace([np.inf, -np.inf], 0)
 
     return import_df
-
-def get_med_import(emps):
-    for emp in emps:
-        config = ConfigLoad('end', emp)
-        print(emp)
-
-        mapping_item = config.input_dir.cargas.carga_company.mapping_export
-        import_file = config.input_dir.cargas.carga_company.export_template
-        agg_vendas_file = config.input_dir.cargas.carga_company.output.sales_mapped
-        agg_clientes_file = config.input_dir.cargas.carga_company.output.clients_mapped
-        out_import_file = config.input_dir.cargas.carga_company.output.export
-        date = config.date
-
-        df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item, date, -1)
-        df.to_excel(out_import_file)
-
-def transform_med_import():
-    config = ConfigLoad('end',  'null')
-
-    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'import_automatico')
-    print(emps)
-    get_med_import(emps)

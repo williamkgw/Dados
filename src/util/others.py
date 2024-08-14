@@ -1,6 +1,8 @@
 import shutil
 
 def copy_file_to(path_src, path_dest):
+    path_parent_dest_dir = path_dest.parent
+    path_parent_dest_dir.mkdir(exist_ok = True)
     shutil.copy2(path_src, path_dest)
 
 def copy_dir_to_recursively(path_dir_src, path_dir_dest):

@@ -1,15 +1,9 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
-import pandas as pd
-
 from time import sleep
 import datetime
 from pathlib import Path
-import logging
-
-import src.util.dataframe as dataframe
-from src.config import ConfigLoad
 
 def list_download_files_in_download_dir(download_dir):
     return list(download_dir.glob('*crdownload'))
@@ -196,35 +190,3 @@ def download(name, password, clinica, out_dir, end_date):
     sleep(3)
 
     driver.quit()
-
-def get_logins(emps, credentials):
-    import numpy as np
-
-    credentials_df = pd.read_excel(credentials)
-    credentials_df = credentials_df[credentials_df['SITES'] == 'SIMPLESVET']
-    for emp in emps:
-        config_company = ConfigLoad('end', emp)
-
-        credentials_filtered_df = credentials_df[credentials_df['EMPRESA'] == emp]
-        for _, row in credentials_filtered_df.iterrows():
-            print(emp)
-            date = config_company.date
-            vendas_clientes_dir = config_company.input_dir.cargas.carga_company.dir_name
-
-            nome_acesso = row['NOME DE ACESSO']
-            acesso = row['ACESSO']
-            senha = row['SENHA']
-            extra = row['EXTRA']
-
-            if extra is not np.nan:
-                vendas_clientes_dir = vendas_clientes_dir / f'{extra}'
-            try:
-                download(acesso, senha, nome_acesso, vendas_clientes_dir, date)
-            except Exception as e:
-                logging.warning(f'{emp}/Falha no Download/{e}')
-
-def extract_webscraping():
-    config = ConfigLoad('end', 'null')
-    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'webscraping')
-    print(emps)
-    get_logins(emps, config.input_dir.cargas.credentials)
