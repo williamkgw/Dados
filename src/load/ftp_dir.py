@@ -1,4 +1,3 @@
-import src.util.dataframe as dataframe
 from src.util.others import (
     copy_dir_to_recursively,
     delete_dir_recursively,
@@ -11,8 +10,6 @@ def remove_all_inside_results(dir_results):
     delete_dir_recursively(dir_results)
 
 def copy_dirs_carga_to_results_dirs_carga(dirs_carga, emps):
-    config = ConfigLoad('end', 'null')
-
     dirs_company = []
     for emp in emps:
         config_company = ConfigLoad('end', emp)
@@ -34,13 +31,3 @@ def copy_exports_to_results_exports_carga(dir_exports, emps):
 
         dest_path = dir_exports / f'{emp} - {out_path.name}'
         copy_file_to(out_path, dest_path)
-
-def load_ftp_dir():
-    config = ConfigLoad('end', 'null')
-    
-    emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'ftp_dir')
-    print(emps)
-
-    remove_all_inside_results(config.input_dir.results.dir_name)
-    copy_dirs_carga_to_results_dirs_carga(config.input_dir.results.dirs_carga, emps)
-    copy_exports_to_results_exports_carga(config.input_dir.results.exports_carga, emps)

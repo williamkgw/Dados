@@ -1,18 +1,11 @@
 import argparse
 import logging
 
-import src.extraction.webscraping
-import src.transform.import_icg.import_icg
-import src.transform.import_icg.import_icg_triple_check
-import src.transform.mapping.mapping_clients
-import src.transform.mapping.mapping_item
-import src.transform.mapping.mapping_sales
-import src.transform.data_analysis
-import src.load.mapping.mapping_clients
-import src.load.mapping.mapping_item
-import src.load.mapping.mapping_sales
-import src.load.import_icg
-import src.load.ftp_dir
+import src.util.dataframe as dataframe
+
+import src.scrape
+import src.generate
+import src.support
 
 from src.config import ConfigLoad
 
@@ -22,75 +15,126 @@ def main():
 
     parser = argparse.ArgumentParser(
                         description='Um programa para realizar ETL no sistema Quattrus'
-                        )
+                    )
 
     parser.add_argument('file', help = 'Arquivo para executar')
     parser.add_argument('mode', help = 'Tipo de execução do arquivo')
 
     args = parser.parse_args()
 
-    if args.file == 'extraction':
+    if args.file == 'scrape':
         if args.mode == 'webscraping':
-            src.extraction.webscraping.extract_webscraping()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'webscraping')
+            print(emps)
+            src.scrape.get_logins(emps, config.input_dir.cargas.credentials)
 
-    elif args.file == 'transform':
+    elif args.file == 'generate':
         if args.mode == 'import_icg':
-            src.transform.import_icg.import_icg.transform_med_import()
+            config = ConfigLoad('end',  'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'import_automatico')
+            print(emps)
+            src.generate.get_med_import(emps)
 
         elif args.mode == 'import_icg_triple_check':
-            src.transform.import_icg.import_icg_triple_check.transform_triple_check()
+            config = ConfigLoad('end',  'null')
+            emps = dataframe.is_not_done_carga(config.input_dir, config.date, 'triple_check')
+            print(emps)
+            src.generate.triple_check(emps)
 
         elif args.mode == 'mapping_item':
-            src.transform.mapping.mapping_item.transform_mapping_item()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_item')
+            src.generate.get_mapping_item(emps)
         
         elif args.mode == 'new_mapping':
-            src.transform.mapping.mapping_sales.transform_new_mapping()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'new_mapping')
+            print(emps)
+            src.generate.get_new_mapping(emps)
 
         elif args.mode == 'new_mapping_cliente':
-            src.transform.mapping.mapping_clients.transform_new_mapping_clientes()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'new_mapping_cliente')
+            print(emps)
+            src.generate.get_new_mapping_cliente(emps)
 
         elif args.mode == 'correct_new_mapping':
-            src.transform.mapping.mapping_sales.transform_correct_new_mapping()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'correct_mapping')
+            print(emps)
+            src.generate.filter_and_correct_new_mapping_all(emps, config.input_dir.new_mapping_sales_corrected_all)
 
         elif args.mode == 'data_analysis':
-            src.transform.data_analysis.transform_data_analysis()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'data_analysis')
+            print(emps)
+            src.generate.do_data_analysis(emps)
 
-    elif args.file == 'load':
+    elif args.file == 'support':
         if args.mode == 'mapping_clientes':
-            src.load.mapping.mapping_clients.load_mapping_clientes()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_cliente')
+            print(emps)
+            src.support.copy_mapping_clientes(emps)
 
         elif args.mode == 'mapping_item':
-            src.load.mapping.mapping_item.load_mapping_item()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_item')
+            print(emps)
+            src.support.copy_mapping_item(emps)
 
         elif args.mode == 'mapping_vendas':
-            src.load.mapping.mapping_sales.load_mapping_vendas()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping')
+            print(emps)
+            src.support.copy_mapping_vendas(emps)
 
         elif args.mode == 'import_icg':
-            src.load.import_icg.load_import_icg()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'import')
+            print(emps)
+            src.support.copy_import_icg(emps)
         
         elif args.mode == 'ftp_dir':
-            src.load.ftp_dir.load_ftp_dir()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'ftp_dir')
+            print(emps)
+            src.support.copy_ftp_dir(emps, config.input_dir.results)
 
         elif args.mode == 'new_mapping_clientes_all':
-            src.load.mapping.mapping_clients.load_new_mapping_clientes_all()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'new_mapping_cliente')
+            print(emps)
+            src.support.copy_new_mapping_clientes_all(emps, config.input_dir)
 
         elif args.mode == 'mapping_item_all':
-            src.load.mapping.mapping_item.load_mapping_item_all()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_item')
+            print(emps)
+            src.support.copy_mapping_item_all(emps, config.input_dir)
 
         elif args.mode == 'new_mapping_vendas_all':
-            src.load.mapping.mapping_sales.load_new_mapping_vendas_all()
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'new_mapping')
+            print(emps)
+            src.support.copy_new_mapping_vendas_all(emps, config.input_dir)
 
         elif args.mode == 'new_mapping_clientes_all_to_company_dir':
-            src.load.mapping.mapping_clients.load_new_mapping_clientes_all_to_company_dir()
+            config = ConfigLoad('end', 'null')
+            src.support.copy_new_mapping_clientes_all_to_company_dir(config.input_dir)
 
         elif args.mode == 'mapping_item_all_to_company_dir':
-            src.load.mapping.mapping_item.load_mapping_item_all_to_company_dir()
+            config = ConfigLoad('end', 'null')
+            src.support.copy_mapping_item_all_to_company_dir(config.input_dir)
 
         elif args.mode == 'new_mapping_vendas_all_to_company_dir':
-            src.load.mapping.mapping_sales.load_new_mapping_vendas_all_to_company_dir()
+            config = ConfigLoad('end', 'null')
+            src.support.copy_new_mapping_vendas_all_to_company_dir(config.input_dir)
 
         elif args.mode == 'correct_new_mapping_vendas_all_to_company_dir':
-            src.load.mapping.mapping_sales.load_correct_new_mapping_vendas_to_company_dir()
+            config = ConfigLoad('end', 'null')
+            src.support.copy_correct_new_mapping_vendas_to_company_dir(config.input_dir)
 
 if __name__ == '__main__':
     main()
