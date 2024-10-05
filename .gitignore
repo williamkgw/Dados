@@ -14,3 +14,6 @@ thirdparty/
 
 # Vscode configs
 .vscode/
+
+# Mac files
+.DS_Store

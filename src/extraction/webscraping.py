@@ -18,13 +18,19 @@ def halt_for_download(download_dir, timeout):
         sleep(timeout)
 
 def init_driver(download_dir):
-    chrome_driver_path = Path('thirdparty/chromedriver-win32/chromedriver.exe')
+    chrome_driver_path = Path('/opt/homebrew/bin/chromedriver')
     download_dir_path_str = str(download_dir.resolve())
-    prefs = dict([('download.default_directory', download_dir_path_str)])
+    prefs = {
+        'download.prompt_for_download': False,
+        'download.default_directory': download_dir_path_str,
+        'download.directory_upgrage': True,
+        'profile.default_content_settings.popups': 0,
+    }
     options = webdriver.ChromeOptions()
     options.add_argument("--disable-notifications")
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     options.add_experimental_option('prefs', prefs)
+    options.binary_location = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
     driver = webdriver.Chrome(executable_path = chrome_driver_path,options=options)
     return driver
 
