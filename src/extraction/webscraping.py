@@ -18,7 +18,6 @@ def halt_for_download(download_dir, timeout):
         sleep(timeout)
 
 def init_driver(download_dir):
-    chrome_driver_path = Path('/opt/homebrew/bin/chromedriver')
     download_dir_path_str = str(download_dir.resolve())
     prefs = {
         'download.prompt_for_download': False,
@@ -31,7 +30,7 @@ def init_driver(download_dir):
     options.add_experimental_option('excludeSwitches', ['enable-logging'])
     options.add_experimental_option('prefs', prefs)
     options.binary_location = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
-    driver = webdriver.Chrome(executable_path = chrome_driver_path,options=options)
+    driver = webdriver.Chrome(options=options)
     return driver
 
 def login_user(driver, email, password):
