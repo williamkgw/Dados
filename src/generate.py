@@ -133,7 +133,7 @@ def get_new_mapping(emps):
         config_dest = ConfigLoad('end', emp)
 
         try:
-            dest_vendas_df = init_vendas(config_dest.input_dir.cargas.carga_company.sales)
+            dest_vendas_df = init_vendas(config_dest.input_dir.cargas.carga_company.sales, config_dest.date)
         except Exception as e:
             logging.warning(f'{emp}/exception {e}')
             continue

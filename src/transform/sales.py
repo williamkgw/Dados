@@ -156,7 +156,7 @@ def sales_data_analysis(config_carga_company, end_date):
     new_mapping_vendas_df, *info_mapping_vendas = test_mapping_vendas(new_mapping_vendas_df, config_carga_company.output.mapping_sales_mapped)
     test_mapping_vendas_to_excel(*info_mapping_vendas)
     
-    vendas_df = init_vendas(config_carga_company.sales)
+    vendas_df = init_vendas(config_carga_company.sales, end_date)
     result_vendas = test_vendas(vendas_df, new_mapping_vendas_df)
     inadimplencia = test_inadimplente(vendas_df, end_date)
     test_vendas_to_excel(config_carga_company.output, *result_vendas, inadimplencia)

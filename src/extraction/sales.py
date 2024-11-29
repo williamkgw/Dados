@@ -3,7 +3,7 @@ import pandas as pd
 
 def correct_datetime_column(vendas_df):
     df = vendas_df.copy()
-    df['Data e hora'] = pd.to_datetime(df['Data e hora'], errors = 'coerce')
+    df['Data e hora'] = pd.to_datetime(df['Data e hora'], errors = 'coerce', format = '%d/%m/%Y %H:%M')
     df = df.dropna(subset = 'Data e hora')
     return df
 
@@ -13,14 +13,12 @@ def get_vendas_last_36_months(vendas_df, end_date):
     mask = (vendas_df['Data e hora'] > min_datetime) & (vendas_df['Data e hora'] < max_datetime)
     return vendas_df[mask]
 
-def init_vendas(path_sales):
-    end_date = datetime.date(year = 2024, month = 10, day = 31)
+def init_vendas(path_sales, end_date):
     vendas_df =  pd.read_csv(path_sales, thousands = '.', decimal = ',', sep = ';',
-                                encoding = 'latin1', parse_dates = ['Data e hora'],
-                                dayfirst=True,
-                        )
+                                encoding = 'latin1'
+                )
+    vendas_df = correct_datetime_column(vendas_df)
     vendas_df['Código'] = vendas_df['Código'].fillna(0)
     vendas_df = vendas_df.astype({'Produto/serviço': str, 'Quantidade': float, 'Bruto': float})
-    vendas_df = correct_datetime_column(vendas_df)
     vendas_df = get_vendas_last_36_months(vendas_df, end_date)
     return vendas_df

@@ -83,7 +83,7 @@ def clients_data_analysis(config_carga_company, end_date):
     new_mapping_clientes_df, *info_mapping_clientes = test_mapping_clientes(new_mapping_clientes_df)
     test_mapping_clientes_to_excel(config_carga_company.output, *info_mapping_clientes)
 
-    vendas_df = init_vendas(config_carga_company.sales)
+    vendas_df = init_vendas(config_carga_company.sales, end_date)
     clientes_df = init_clientes(config_carga_company.clients, end_date)
     result_clientes = test_clientes(vendas_df, clientes_df, new_mapping_clientes_df)
     test_clientes_to_excel(config_carga_company.output, *result_clientes)
