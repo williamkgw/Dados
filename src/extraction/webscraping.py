@@ -1,21 +1,24 @@
 from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 
+import threading
+
+import time
 from time import sleep
 import datetime
-from pathlib import Path
 
-def list_download_files_in_download_dir(download_dir):
-    return list(download_dir.glob('*crdownload'))
-
-def halt_for_download(download_dir, timeout):
-    while not list_download_files_in_download_dir(download_dir):
-        sleep(timeout/10)
-        if list_download_files_in_download_dir(download_dir):
-            break
+def wait_for_download(download_dir, file_pattern = None, timeout = 60):
+    
+    def is_download_completed():
         
-    while list_download_files_in_download_dir(download_dir):
-        sleep(timeout)
+        if any(download_dir.glob("*.crdownload")):
+            return False
+        
+        if any(download_dir.glob(file_pattern)):
+            return True
+
+    WebDriverWait(None, timeout).until(lambda _: is_download_completed())
 
 def init_driver(download_dir):
     download_dir_path_str = str(download_dir.resolve())
@@ -136,10 +139,11 @@ def download_vendas(driver, end_date, download_dir):
     relatorio_button = driver.find_element(By.XPATH, '//button[@id="p__btn_relatorio"]')
     driver.execute_script("arguments[0].click();", relatorio_button)
 
+    sleep(3)
     relatorio_csv_button = driver.find_element(By.XPATH, '//a[normalize-space()="Exportar para CSV"]')
     driver.execute_script("arguments[0].click();", relatorio_csv_button)
 
-    halt_for_download(download_dir, 0.5)
+    wait_for_download(download_dir, "Vendas.csv")
 
 def download_clientes(driver, download_dir):
     clientes_link = driver.find_element(By.XPATH, '//span[normalize-space()="Clientes"]')
@@ -148,26 +152,25 @@ def download_clientes(driver, download_dir):
 
     relatorio_button = driver.find_element(By.XPATH, '//button[@id="p__btn_relatorio"]')
     driver.execute_script("arguments[0].click();", relatorio_button)
-    sleep(0.5)
+    sleep(3)
 
     relatorio_csv_button = driver.find_element(By.XPATH, '//a[normalize-space()="Exportar clientes para CSV"]')
     driver.execute_script("arguments[0].click();", relatorio_csv_button)
-    halt_for_download(download_dir, 0.5)
+    wait_for_download(download_dir, "Clientes.csv")
 
     relatorio_button = driver.find_element(By.XPATH, '//button[@id="p__btn_relatorio"]')
     driver.execute_script("arguments[0].click();", relatorio_button)
-    sleep(0.5)
+    sleep(3)
 
     relatorio_csv_button = driver.find_element(By.XPATH, '//a[normalize-space()="Exportar clientes e animais para CSV"]')
     driver.execute_script("arguments[0].click();", relatorio_csv_button)
-    halt_for_download(download_dir, 0.5)
+    wait_for_download(download_dir, "Animais_e_Clientes.csv")
 
-def download(name, password, clinica, out_dir, end_date):
+def download(driver, name, password, clinica, out_dir, end_date):
     import numpy as np
 
     site = 'https://app.simples.vet/login/login.php'
 
-    driver = init_driver(out_dir)
     driver.get(site)
     sleep(1)
 
@@ -182,6 +185,7 @@ def download(name, password, clinica, out_dir, end_date):
     sleep(3)
 
     out_dir.mkdir(parents = True, exist_ok = True)
+    sleep(3)
     download_vendas(driver, end_date, out_dir)
     print(f'download_vendas finalizou {out_dir}')
     sleep(3)
@@ -195,3 +199,36 @@ def download(name, password, clinica, out_dir, end_date):
     sleep(3)
 
     driver.quit()
+
+def download_with_timeout(name, password, clinica, out_dir, end_date, timeout = 300):
+    driver = init_driver(out_dir)
+
+    exception = [None]
+    completed = [None]
+
+    def target_thread():
+        try:
+            download(driver, name, password, clinica, out_dir, end_date)
+            completed[0] = True
+        except Exception as e:
+            driver.quit()
+            exception[0] = e
+    
+    thread = threading.Thread(target = target_thread)
+    thread.daemon = True
+
+    start_point_time = time.time()
+    thread.start()
+    thread.join(timeout)
+
+    if thread.is_alive():
+        elapsed_time = time.time() - start_point_time
+        print(f"Download for {clinica} timed out after {elapsed_time:.2f} seconds")
+        driver.quit()
+        return False
+
+    if exception[0]:
+        print(f"Exception during download for {clinica}: {exception[0]}")
+        return False
+    
+    return completed[0]
