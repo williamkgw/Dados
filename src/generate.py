@@ -7,7 +7,6 @@ from src.load.export import load_export_df
 def get_med_import(emps):
     for emp in emps:
         config = ConfigLoad('end', emp)
-        print(emp)
 
         mapping_item = config.input_dir.cargas.carga_company.mapping_export
         import_file = config.input_dir.cargas.carga_company.export_template
@@ -16,7 +15,13 @@ def get_med_import(emps):
         out_import_file = config.input_dir.cargas.carga_company.output.export
         date = config.date
 
-        df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item, date, -1)
+        try:
+            logging.info(f"Started to generate import for {emp}")
+            df = med(import_file, agg_vendas_file, agg_clientes_file, mapping_item, date, -1)
+        except Exception as e:
+            logging.warning(f"Exception during generating import for {emp}: {e}")
+            continue
+
         load_export_df(df, out_import_file)
 
 import pandas as pd
