@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import pandas as pd
 
@@ -15,15 +16,21 @@ def is_not_done_carga(control_flow_path, control_type):
     return tuple(not_done_emps.index)
 
 def df_all(paths_f, path_all_f, n):
+    logger = logging.getLogger("src.util.dataframe")
     df = pd.DataFrame()
 
     for path_f in paths_f:
         emp = path_f.parents[n].name
-        print(emp)
-        df_new = pd.read_excel(path_f)
-        df_new['Empresa'] = emp
-        df_new['path'] = path_f
-        df = pd.concat([df, df_new])
+        logger.info(f"Started merging dataframe from {emp}: {path_f}")
+        try:
+            df_new = pd.read_excel(path_f)
+            df_new['Empresa'] = emp
+            df_new['path'] = path_f
+            df = pd.concat([df, df_new])
+        
+        except Exception as e:
+            logger.exception(f"Exception during df_all from {emp}: {path_f}")
+            continue
     
     df.to_excel(path_all_f, index = False)
 
