@@ -131,40 +131,43 @@ from src.extraction.mapping.mapping_sales import init_mapping_vendas
 from src.load.mapping.mapping_sales import load_mapping_vendas_df
 
 def get_new_mapping(emps):
+    logger = logging.getLogger("src.generate")
+
     for emp in emps:
-        print(emp)
+        logger.info(f"Started generating new_mapping_sales for {emp}")
 
         config_src = ConfigLoad('end', emp)
         config_dest = ConfigLoad('end', emp)
 
         try:
             dest_vendas_df = init_vendas(config_dest.input_dir.cargas.carga_company.sales, config_dest.date)
+ 
+            dest_vendas_df['Data e hora'] = pd.to_datetime(dest_vendas_df['Data e hora'], errors = 'coerce')
+            dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= config_src.date - datetime.timedelta(days = 180)]
+
+            src_mapping_df = init_mapping_vendas(config_src.input_dir.cargas.carga_company.mapping_sales)
+            src_mapping_df = src_mapping_df[~src_mapping_df.index.duplicated(keep = 'first')]
+
+            dest_prod_serv_index = dest_vendas_df['Produto/serviço'].unique().tolist()
+            src_prod_serv_index  = src_mapping_df.index.unique().tolist()
+
+            not_found_prod_serv_index = [index for index in dest_prod_serv_index 
+                                        if index.lower() not in [e.lower() for e in src_prod_serv_index]]
+
+            not_found_vendas_df = dest_vendas_df[dest_vendas_df['Produto/serviço'].isin(not_found_prod_serv_index)].copy()
+            dest_mapping_df = not_found_vendas_df.set_index('Produto/serviço')['Grupo']
+            dest_mapping_df = dest_mapping_df[~dest_mapping_df.index.duplicated()]
+            dest_mapping_df = pd.concat([src_mapping_df, dest_mapping_df])
+            dest_mapping_df = dest_mapping_df.rename(columns = {0: 'grupo_simplesvet'})
+            grupo_simplesvet_por_produto_servico = dest_vendas_df.set_index('Produto/serviço').loc[:, 'Grupo']
+            grupo_simplesvet_por_produto_servico = grupo_simplesvet_por_produto_servico[~grupo_simplesvet_por_produto_servico.index.duplicated()]
+
+            dest_mapping_df['grupo_simplesvet'] = grupo_simplesvet_por_produto_servico
+            load_mapping_vendas_df(dest_mapping_df, config_dest.input_dir.cargas.carga_company.new_mapping_sales)
+        
         except Exception as e:
-            logging.warning(f'{emp}/exception {e}')
+            logger.exception(f"Exception during get_new_mapping for {empz}")
             continue
-    
-        dest_vendas_df['Data e hora'] = pd.to_datetime(dest_vendas_df['Data e hora'], errors = 'coerce')
-        dest_vendas_df = dest_vendas_df[dest_vendas_df['Data e hora'].dt.date >= config_src.date - datetime.timedelta(days = 180)]
-
-        src_mapping_df = init_mapping_vendas(config_src.input_dir.cargas.carga_company.mapping_sales)
-        src_mapping_df = src_mapping_df[~src_mapping_df.index.duplicated(keep = 'first')]
-
-        dest_prod_serv_index = dest_vendas_df['Produto/serviço'].unique().tolist()
-        src_prod_serv_index  = src_mapping_df.index.unique().tolist()
-
-        not_found_prod_serv_index = [index for index in dest_prod_serv_index 
-                                     if index.lower() not in [e.lower() for e in src_prod_serv_index]]
-
-        not_found_vendas_df = dest_vendas_df[dest_vendas_df['Produto/serviço'].isin(not_found_prod_serv_index)].copy()
-        dest_mapping_df = not_found_vendas_df.set_index('Produto/serviço')['Grupo']
-        dest_mapping_df = dest_mapping_df[~dest_mapping_df.index.duplicated()]
-        dest_mapping_df = pd.concat([src_mapping_df, dest_mapping_df])
-        dest_mapping_df = dest_mapping_df.rename(columns = {0: 'grupo_simplesvet'})
-        grupo_simplesvet_por_produto_servico = dest_vendas_df.set_index('Produto/serviço').loc[:, 'Grupo']
-        grupo_simplesvet_por_produto_servico = grupo_simplesvet_por_produto_servico[~grupo_simplesvet_por_produto_servico.index.duplicated()]
-
-        dest_mapping_df['grupo_simplesvet'] = grupo_simplesvet_por_produto_servico
-        load_mapping_vendas_df(dest_mapping_df, config_dest.input_dir.cargas.carga_company.new_mapping_sales)
 
 from src.transform.data_analysis import get_analysis
 from src.transform.data_analysis import copy_carga_files_to_analytic
