@@ -1,34 +1,43 @@
+import logging
 from src.config import ConfigLoad
 
 from src.util.others import copy_file_to
 
 def copy_mapping_clientes(emps):
+    logger = logging.getLogger("src.support")
+
     for emp in emps:
-        print(emp)
+        logger.info(f"Starting copying mapping_clients for {emp}")
         src_config = ConfigLoad('beg', emp)
         dest_config = ConfigLoad('end', emp)
 
         copy_file_to(src_config.input_dir.cargas.carga_company.new_mapping_client, dest_config.input_dir.cargas.carga_company.mapping_client)
 
 def copy_mapping_item(emps):
+    logger = logging.getLogger("src.support")
+    
     for emp in emps:
-        print(emp)
+        logger.info(f"Starting copying mapping_item for {emp}")
         src_config = ConfigLoad('beg', emp)
         dest_config = ConfigLoad('end', emp)
 
         copy_file_to(src_config.input_dir.cargas.carga_company.mapping_export, dest_config.input_dir.cargas.carga_company.mapping_export)
 
 def copy_mapping_vendas(emps):
+    logger = logging.getLogger("src.support")
+
     for emp in emps:
-        print(emp)
+        logger.info(f"Starting copying mapping_sales for {emp}")
         src_config = ConfigLoad('beg', emp)
         dest_config = ConfigLoad('end', emp)
 
         copy_file_to(src_config.input_dir.cargas.carga_company.new_mapping_sales, dest_config.input_dir.cargas.carga_company.mapping_sales)
 
 def copy_import_icg(emps):
+    logger = logging.getLogger("src.support")
+
     for emp in emps:
-        print(emp)
+        logger.info(f"Starting copying import_template for {emp}")
         src_config = ConfigLoad('beg', emp)
         dest_config = ConfigLoad('end', emp)
 
