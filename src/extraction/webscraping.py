@@ -1,3 +1,4 @@
+import logging
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
@@ -187,7 +188,7 @@ def download(driver, name, password, clinica, out_dir, end_date):
     out_dir.mkdir(parents = True, exist_ok = True)
     sleep(3)
     download_vendas(driver, end_date, out_dir)
-    print(f'download_vendas finalizou {out_dir}')
+    logging.info(f'download_vendas finalizou {out_dir}')
     sleep(3)
 
     return_to_init_button = driver.find_element(By.XPATH, '//img[@alt="logo"]')
@@ -195,12 +196,14 @@ def download(driver, name, password, clinica, out_dir, end_date):
     sleep(3)
 
     download_clientes(driver, out_dir)
-    print(f'download_clientes finalizou {out_dir}')
+    logging.info(f'download_clientes finalizou {out_dir}')
     sleep(3)
 
     driver.quit()
 
 def download_with_timeout(name, password, clinica, out_dir, end_date, timeout = 300):
+    logger = logging.getLogger('src.scrape.webscraping')
+
     driver = init_driver(out_dir)
 
     exception = [None]
@@ -223,12 +226,12 @@ def download_with_timeout(name, password, clinica, out_dir, end_date, timeout = 
 
     if thread.is_alive():
         elapsed_time = time.time() - start_point_time
-        print(f"Download for {clinica} timed out after {elapsed_time:.2f} seconds")
+        logger.warning(f"Download for {clinica} timed out after {elapsed_time:.2f} seconds")
         driver.quit()
         return False
 
     if exception[0]:
-        print(f"Exception during download for {clinica}: {exception[0]}")
+        logger.exception(f"Exception during download for {clinica}: {exception[0]}")
         return False
     
     return completed[0]
