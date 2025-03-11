@@ -132,22 +132,22 @@ def main():
 
         elif args.mode == 'new_mapping_clientes_all_to_company_dir':
             config = ConfigLoad('end', 'null')
-            logger.info(f"Started to post the segregated new_mapping_clients from the directory {config.input_dir}")
+            logger.info(f"Started to post the segregated new_mapping_clients from the directory {config.input_dir.dir_name}")
             src.support.copy_new_mapping_clientes_all_to_company_dir(config.input_dir)
 
         elif args.mode == 'mapping_item_all_to_company_dir':
             config = ConfigLoad('end', 'null')
-            logger.info(f"Started to post the segregated mapping_item from the directory {config.input_dir}")
+            logger.info(f"Started to post the segregated mapping_item from the directory {config.input_dir.dir_name}")
             src.support.copy_mapping_item_all_to_company_dir(config.input_dir)
 
         elif args.mode == 'new_mapping_vendas_all_to_company_dir':
             config = ConfigLoad('end', 'null')
-            logger.info(f"Started to post the segregated new_mapping_sales from the directory {config.input_dir}")
+            logger.info(f"Started to post the segregated new_mapping_sales from the directory {config.input_dir.dir_name}")
             src.support.copy_new_mapping_vendas_all_to_company_dir(config.input_dir)
 
         elif args.mode == 'correct_new_mapping_vendas_all_to_company_dir':
             config = ConfigLoad('end', 'null')
-            logger.info(f"Started to post the segregated correct_new_mapping_sales from the directory {config.input_dir}")
+            logger.info(f"Started to post the segregated correct_new_mapping_sales from the directory {config.input_dir.dir_name}")
             src.support.copy_correct_new_mapping_vendas_to_company_dir(config.input_dir)
 
 if __name__ == '__main__':
