@@ -35,19 +35,26 @@ def df_all(paths_f, path_all_f, n):
     df.to_excel(path_all_f, index = False)
 
 def df_all_to_df(path_all_f):
+    logger = logging.getLogger("src.util.dataframe")
 
-    df = pd.read_excel(path_all_f, index_col = 0)
+    try:
+        logger.info(f"Started to load dataframe from {path_all_f}")
+        df = pd.read_excel(path_all_f, index_col = 0)
+    except Exception as e:
+        logger.exception(f"Exception during load dataframe from {path_all_f}")
+        return
 
     for name, group in df.groupby('Empresa'):
-        print(name)
+        logger.info(f"Started getting groupped dataframe from {name} in {path_all_f}")
 
         path = group['path'].iloc[0]
         path = Path(path)
 
         df = pd.DataFrame(data = group, columns = group.columns[:-2])
         
-        print(path)
-        if path.parent.is_dir():
+        try:
+            logger.info(f"Started loading dataframe from {name} in {path}")
             df.to_excel(path)
-        else:
-            print('NÃO EXISTE: ', name)
+        except Exception as e:
+            logger.exception(f"Exception during loading dataframe from {name} in {path}")
+            continue
