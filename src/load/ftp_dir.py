@@ -26,7 +26,6 @@ def copy_exports_to_results_exports_carga(dir_exports, emps):
 
     for emp in emps:
         config_company = ConfigLoad('end', emp)
-        print(emp)
         out_path = config_company.input_dir.cargas.carga_company.output.export
 
         dest_path = dir_exports / f'{emp} - {out_path.name}'
