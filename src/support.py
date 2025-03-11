@@ -50,9 +50,15 @@ from src.load.ftp_dir import (
 )
 
 def copy_ftp_dir(emps, config_results):
+    logger = logging.getLogger("src.support")
+
+    logger.info(f"Started to remove the contents of {config_results.dir_name}")
     remove_all_inside_results(config_results.dir_name)
+    logger.info(f"Started to copy dirs of {emps}")
     copy_dirs_carga_to_results_dirs_carga(config_results.dirs_carga, emps)
+    logger.info(f"Started to copy exports of {emps}")
     copy_exports_to_results_exports_carga(config_results.exports_carga, emps)
+    logger.info(f"Ending copy ftp for {emps}")
 
 from src.util.dataframe import df_all
 

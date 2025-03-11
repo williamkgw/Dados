@@ -69,20 +69,27 @@ def get_mapping_item(emps):
 from src.transform.mapping.mapping_sales import correct_new_mapping
 
 def filter_and_correct_new_mapping_all(emps, path_new_mapping_sales_corrected_all):
+    logger = logging.getLogger("src.generate")
+
     new_mapping_all_df = pd.DataFrame()
     for emp in emps:
-        print(emp)
+        logger.info(f"Started correcting new_mapping_sales for {emp}")
         config = ConfigLoad('end', emp)
 
         path_mapping_sales = config.input_dir.cargas.carga_company.mapping_sales
         path_new_mapping_sales = config.input_dir.cargas.carga_company.new_mapping_sales
 
-        new_mapping_df = correct_new_mapping(path_mapping_sales, path_new_mapping_sales)
-        new_mapping_df['Empresa'] = emp
-        new_mapping_df['path'] = path_new_mapping_sales
+        try: 
+            new_mapping_df = correct_new_mapping(path_mapping_sales, path_new_mapping_sales)
+            new_mapping_df['Empresa'] = emp
+            new_mapping_df['path'] = path_new_mapping_sales
 
-        new_mapping_all_df = pd.concat([new_mapping_all_df, new_mapping_df])
+            new_mapping_all_df = pd.concat([new_mapping_all_df, new_mapping_df])
+        except Exception as e:
+            logger.exception(f"Exception during the correcting new_mapping_sales for {emp}")
+            continue
 
+    logger.info(f"Started to placing correct_new_mapping of {emps} into {path_new_mapping_sales_corrected_all}")
     new_mapping_all_df.to_excel(path_new_mapping_sales_corrected_all)
 
 from src.extraction.clients import init_clientes
@@ -91,8 +98,10 @@ import numpy as np
 from src.load.mapping.mapping_clients import load_mapping_clientes_df
 
 def get_new_mapping_cliente(emps):
+    logger = logging.getLogger("src.generate")
+
     for emp in emps:
-        print(emp)
+        logger.info(f"Started to correct new mapping cliente for {emp}")
 
         src_config = ConfigLoad('end', emp)
         dest_config = ConfigLoad('end', emp)
@@ -102,7 +111,7 @@ def get_new_mapping_cliente(emps):
             dest_clientes_df['Origem'] = dest_clientes_df['Origem'].fillna('_outros')
 
         except Exception as e:
-            logging.warning(f'{emp}/exception {e}')
+            logger.warning(f'{emp}/exception {e}')
             continue
 
         src_mapping_clientes_df = init_mapping_clientes(src_config.input_dir.cargas.carga_company.mapping_client)
@@ -166,19 +175,23 @@ def get_new_mapping(emps):
             load_mapping_vendas_df(dest_mapping_df, config_dest.input_dir.cargas.carga_company.new_mapping_sales)
         
         except Exception as e:
-            logger.exception(f"Exception during get_new_mapping for {empz}")
+            logger.exception(f"Exception during get_new_mapping for {emp}")
             continue
 
 from src.transform.data_analysis import get_analysis
 from src.transform.data_analysis import copy_carga_files_to_analytic
 
 def do_data_analysis(emps):
+    logger = logging.getLogger("src.generate")
+
     for emp in emps:
-        print(emp)
+        logger.info(f"Started data analysis for {emp}")
 
         config = ConfigLoad('end', emp)
         try:
             get_analysis(config.input_dir.cargas.carga_company, config.date)
             copy_carga_files_to_analytic(config.input_dir.cargas.carga_company, config.input_dir.analytic)
         except Exception as e:
-            logging.warning(f'{emp}/Couldn\'t get data_analysis/{e}')
+            logging.exception(f"Exception during data analysis for {emp}")
+
+    logger.info(f"Ending data analysis for {emps}")
