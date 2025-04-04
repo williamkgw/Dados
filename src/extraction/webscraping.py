@@ -9,17 +9,25 @@ import time
 from time import sleep
 import datetime
 
-def wait_for_download(download_dir, file_pattern = None, timeout = 60):
+logger = logging.getLogger('src.scrape.webscraping')
+
+def wait_for_download(download_dir, file_pattern=None, timeout=60):
     
     def is_download_completed():
-        
         if any(download_dir.glob("*.crdownload")):
             return False
         
-        if any(download_dir.glob(file_pattern)):
+        if file_pattern and any(download_dir.glob(file_pattern)):
             return True
-
-    WebDriverWait(None, timeout).until(lambda _: is_download_completed())
+        
+        return False
+    
+    try:
+        WebDriverWait(None, timeout).until(lambda _: is_download_completed())
+        return True
+    except Exception as e:
+        logger.error(f"Timeout waiting for download: {str(e)}")
+        return False
 
 def init_driver(download_dir):
     download_dir_path_str = str(download_dir.resolve())
@@ -58,12 +66,14 @@ def login_user(driver, email, password):
 
 def select_clinica(driver, nome_clinica):
     elems = driver.find_elements(By.TAG_NAME, 'h4')
+    available_clinics = [elem.text for elem in elems]
+    logger.info(f"Available clinics: {available_clinics}")
+    
     clinicas_dict = dict([(elem.text, elem) for elem in elems])
-
     clinica_button = clinicas_dict.get(nome_clinica, None)
 
     if clinica_button is None:
-        raise Exception(f'{nome_clinica} not found')
+        raise Exception(f"{nome_clinica} not found. Available clinics: {available_clinics}")
     else:
         driver.execute_script("arguments[0].click();", clinica_button)
 
@@ -188,7 +198,7 @@ def download(driver, name, password, clinica, out_dir, end_date):
     out_dir.mkdir(parents = True, exist_ok = True)
     sleep(3)
     download_vendas(driver, end_date, out_dir)
-    logging.info(f'download_vendas finalizou {out_dir}')
+    logger.info(f'download_vendas finalizou {out_dir}')
     sleep(3)
 
     return_to_init_button = driver.find_element(By.XPATH, '//img[@alt="logo"]')
@@ -196,42 +206,51 @@ def download(driver, name, password, clinica, out_dir, end_date):
     sleep(3)
 
     download_clientes(driver, out_dir)
-    logging.info(f'download_clientes finalizou {out_dir}')
+    logger.info(f'download_clientes finalizou {out_dir}')
     sleep(3)
 
     driver.quit()
 
-def download_with_timeout(name, password, clinica, out_dir, end_date, timeout = 300):
-    logger = logging.getLogger('src.scrape.webscraping')
-
-    driver = init_driver(out_dir)
-
-    exception = [None]
-    completed = [None]
-
-    def target_thread():
-        try:
-            download(driver, name, password, clinica, out_dir, end_date)
-            completed[0] = True
-        except Exception as e:
-            driver.quit()
-            exception[0] = e
-    
-    thread = threading.Thread(target = target_thread)
-    thread.daemon = True
-
-    start_point_time = time.time()
-    thread.start()
-    thread.join(timeout)
-
-    if thread.is_alive():
-        elapsed_time = time.time() - start_point_time
-        logger.warning(f"Download for {clinica} timed out after {elapsed_time:.2f} seconds")
-        driver.quit()
+def download_with_timeout(name, password, clinica, out_dir, end_date, timeout=300):
+    try:
+        driver = init_driver(out_dir)
+        
+        exception = [None]
+        completed = [False]
+        
+        def target_thread():
+            try:
+                download(driver, name, password, clinica, out_dir, end_date)
+                completed[0] = True
+            except Exception as e:
+                logger.exception(f"Error during download for {clinica}: {str(e)}")
+                exception[0] = e
+                try:
+                    driver.quit()
+                except:
+                    pass
+        
+        thread = threading.Thread(target=target_thread)
+        thread.daemon = True
+        
+        start_point_time = time.time()
+        thread.start()
+        thread.join(timeout)
+        
+        if thread.is_alive():
+            elapsed_time = time.time() - start_point_time
+            logger.warning(f"Download for {clinica} timed out after {elapsed_time:.2f} seconds")
+            try:
+                driver.quit()
+            except:
+                pass
+            return False
+        
+        if exception[0]:
+            logger.error(f"Exception during download for {clinica}: {str(exception[0])}")
+            return False
+        
+        return completed[0]
+    except Exception as e:
+        logger.critical(f"Critical error in download_with_timeout for {clinica}: {str(e)}")
         return False
-
-    if exception[0]:
-        logger.exception(f"Exception during download for {clinica}: {exception[0]}")
-        return False
-    
-    return completed[0]

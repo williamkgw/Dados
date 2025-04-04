@@ -10,6 +10,8 @@ import src.support
 
 from src.config import ConfigLoad
 
+logger = logging.getLogger('run')
+
 def main():
     config = ConfigLoad('end', 'null')
     logging.basicConfig(
@@ -20,7 +22,6 @@ def main():
         format='%(asctime)s UTC - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
     )
     logging.Formatter.converter = time.gmtime
-    logger = logging.getLogger('run')
 
     parser = argparse.ArgumentParser(
         description='Um programa para realizar ETL no sistema Quattrus'
