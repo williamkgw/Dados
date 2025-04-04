@@ -5,10 +5,10 @@ from src.extraction.webscraping import download_with_timeout
 
 from src.config import ConfigLoad
 
+logger = logging.getLogger('src.scrape')
+
 def get_logins(emps, credentials):
     import numpy as np
-
-    logger = logging.getLogger('src.scrape')
 
     credentials_df = pd.read_excel(credentials)
     credentials_df = credentials_df[credentials_df['SITES'] == 'SIMPLESVET']
@@ -38,9 +38,10 @@ def get_logins(emps, credentials):
             if sucess:
                 logger.info(f"Download completed for {emp} - {nome_acesso}")
             else:
-                expected_downloaded_files = [vendas_clientes_dir.joinpath(file_stem).with_suffix('.csv') for file_stem in ("Vendas", "Clientes", "Animais_e_Clientes")]
-                for downloaded_file in expected_downloaded_files:
-                    downloaded_file.unlink(missing_ok = True)
+                expected_downloaded_file_patterns = ("Vendas*", "Clientes*", "Animais_e_Clientes*")
+                for expected_downloaded_file_pattern in expected_downloaded_file_patterns:
+                    for matched_downloaded_file_path in vendas_clientes_dir.glob(expected_downloaded_file_pattern):
+                        matched_downloaded_file_path.unlink()
+                        logging.info(f"Removed file: {matched_downloaded_file_path}")
 
                 logger.warning(f"Download failed for {emp} - {nome_acesso}")
-            
