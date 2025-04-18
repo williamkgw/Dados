@@ -213,3 +213,38 @@ def do_data_analysis(emps):
             logger.exception(f"Exception during data analysis for {emp}: {str(e)}")
 
     logger.info(f"Ending data analysis for {emps}")
+
+def gen_template_mapping(emps):
+    for emp in emps:
+        logger.info(f"Started generating template mapping_sales for {emp}")
+
+        config = ConfigLoad('end', emp)
+
+        sales_mapped_excel_path = config.input_dir.cargas.carga_company.sales_mapped_excel
+        grupo_df = (
+            pd.read_excel(sales_mapped_excel_path, sheet_name = 'Reagrupa', usecols = ('Descrição', '2ª - Indicador'))
+            .rename(columns = {'Descrição': 'Produto/serviço', '2ª - Indicador': 'Grupo'})
+        )
+        pilar_df = (
+            pd.read_excel(sales_mapped_excel_path, sheet_name = 'Pilar', usecols = ('2ª - Indicador', '1ª - Pilar de Negócio'))
+            .rename(columns = {'2ª - Indicador': 'Grupo', '1ª - Pilar de Negócio': 'Pilar'})
+        )
+
+        categoria_map = {
+            "PetShop": "B&T+P&S",
+            "Exames": "Clí+",
+            "Clínica": "Clí+",
+            "Centro Cirurgico": "Clí+",
+            "Banho e Tosa": "B&T+P&S",
+            "Internação": "Clí+",
+        }
+
+        mapping_df = grupo_df.copy()
+        mapping_df = mapping_df.set_index('Produto/serviço')
+        mapping_df['Pilar'] = mapping_df['Grupo'].map(pilar_df.set_index('Grupo')['Pilar'])
+        mapping_df['Categoria'] = mapping_df['Pilar'].map(categoria_map)
+        reorganized_mapping_df = mapping_df[['Categoria', 'Pilar', 'Grupo']]
+        logger.info(f"Generating the diagnostic for mapping_df: \n\n {reorganized_mapping_df.value_counts(dropna = False)} \n")
+
+        logger.info(f"Started writing mapping_df to {config.input_dir.cargas.carga_company.mapping_sales}")
+        mapping_df.to_excel(config.input_dir.cargas.carga_company.mapping_sales)
