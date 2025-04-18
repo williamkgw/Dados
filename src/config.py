@@ -30,6 +30,7 @@ class ConfigCargaCompanyLoad:
         self.animals_and_clients = self.dir_name / data['animals-and-clients']
         self.clients = self.dir_name / data['clients']
         self.sales = self.dir_name / data['sales']
+        self.sales_mapped_excel = self.dir_name / data['sales-mapped-excel']
         self.export_template = self.dir_name / data['export-template']
         self.mapping_sales = self.dir_name / data['mapping-sales']
         self.new_mapping_sales = self.dir_name / data['new-mapping-sales']

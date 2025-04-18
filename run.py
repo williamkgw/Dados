@@ -82,6 +82,12 @@ def main():
             logger.info(f"Started to generate the data_analysis on the following companies {emps}")
             src.generate.do_data_analysis(emps)
 
+        elif args.mode == 'mapping_from_excel':
+            config = ConfigLoad('end', 'null')
+            emps = dataframe.is_not_done_carga(config.input_dir.cargas.control_flow, 'mapping_from_excel')
+            logger.info(f"Started to generate the mapping from excel on the following companies {emps}")
+            src.generate.gen_template_mapping(emps)
+
     elif args.file == 'support':
         if args.mode == 'mapping_clientes':
             config = ConfigLoad('end', 'null')
